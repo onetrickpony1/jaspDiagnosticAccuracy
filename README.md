@@ -12,6 +12,8 @@
 
 **JASP Diagnostic Accuracy module** is a community add-on module for JASP. It has one analysis, **ROC Curve**.
 
+**Work in progress** (version 0.1.0): options and output may still change.
+
 An ROC curve shows how well a test score separates two groups, for example patients with and without a disease. The score can be a lab value, a rating or a risk score. In this module the score is called a marker.
 
 The analysis answers questions such as:
