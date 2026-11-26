@@ -61,9 +61,7 @@ The bootstrap interval, the choice of cut-off and the statistics at a cut-off ar
 
 ## Installation
 
-The module is not in JASP's Module Library yet. A Module Library entry is planned.
-
-For now you can load it as a development module from its source, as described in the JASP module development guide ("Configure JASP for development"). The steps below were tested with JASP 0.99.0 on Linux. Windows was not tested end to end; the Windows notes below come from an early trial. macOS was not tested.
+The module is not in JASP's Module Library. You can load it as a development module from its source, as described in the JASP module development guide ("Configure JASP for development"). The steps below were tested with JASP 0.99.0 on Linux. Windows was not tested end to end; the Windows notes below come from an early trial. macOS was not tested.
 
 ### Step 1: install the packages in R
 
