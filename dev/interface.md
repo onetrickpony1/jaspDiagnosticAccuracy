@@ -1,0 +1,67 @@
+# Interface contract for v1 (ROC Curve)
+
+This file fixes the option names, the statistics and the output names. The R code and the tests both follow it.
+
+## Names
+
+- R package: `jaspDiagnosticAccuracy`. Analysis function: `rocCurve` (exported). QML form: `inst/qml/RocCurve.qml`. Title in the menu: "ROC Curve".
+
+## Options (QML `name`, R type, default)
+
+| Name | Values | Default |
+|---|---|---|
+| `outcome` | one variable (nominal or ordinal) | none |
+| `positiveLevel` | a level of `outcome` (string) | the second level |
+| `tests` | one or more variables (scale or ordinal); a variable listed twice is used once | none |
+| `direction` | `"higher"` / `"lower"` | `"higher"` |
+| `aucCiMethod` | `"delong"` / `"bootstrap"` | `"delong"` |
+| `bootstrapReplicates` | integer 100 to 100000 | 2000 |
+| `setSeed`, `seed` | JASP's standard seed control | `FALSE`, 1 |
+| `ciLevel` | 0 < x < 1 | 0.95 |
+| `cutoffTable` | logical | `FALSE` |
+| `cutoffCriterion` | `"youden"` / `"closestTopLeft"` / `"fixedSensitivity"` / `"fixedSpecificity"` / `"threshold"` | `"youden"` |
+| `fixedSensitivityValue` | 0 < x < 1 | 0.9 |
+| `fixedSpecificityValue` | 0 < x < 1 | 0.9 |
+| `thresholdValue` | any number | 0 |
+| `prevalence` | `"sample"` / `"custom"` | `"sample"` |
+| `prevalenceValue` | 0 < x < 1 | 0.1 |
+| `compareMarkers` | logical (enabled with 2 or more tests) | `FALSE` |
+| `coordinatesTable` | logical | `FALSE` |
+| `rocPlot` | logical | `FALSE` |
+| `thresholdPlot` | logical | `FALSE` |
+
+## Statistics (what each number means)
+
+- Levels: `positiveLevel` is the case (positive) class; the other level is the control class. pROC call: `levels = c(negative, positive)`.
+- Direction: `"higher"` means higher marker values indicate positive: pROC `direction = "<"`. `"lower"` means pROC `direction = ">"`. Never `"auto"`.
+- Default output (progressive disclosure): with only the variables filled in, the output is the AUC table and nothing else. The other tables and the plots are absent, not empty, until their checkbox is on. The cut-off criterion and its value fields are enabled only when `cutoffTable` is on; the prevalence fields when `cutoffTable` or `coordinatesTable` is on. The ROC plot marks the chosen cut-off only when `cutoffTable` is on.
+- Infinite values (Inf or -Inf) in a marker are treated as missing for that marker, with a footnote in the AUC table giving the count.
+- Missing values: AUC and cut-off tables use, per marker, the rows where the outcome and that marker are both present. The comparison table uses rows where the outcome and every marker are present.
+- AUC SE, z and p: always the DeLong SE. z = (AUC - 0.5) / SE, p two-sided normal.
+- AUC CI: `ci.auc` with DeLong, or bootstrap at `ciLevel`. The bootstrap is the module's own code with the same random draws and quantile rule as `ci.auc(method = "bootstrap", boot.n = bootstrapReplicates, boot.stratified = TRUE)`, but without rebuilding an ROC curve per replicate. Its AUCs and interval agree with pROC's to rounding (within 1e-12), not bit for bit.
+- Thresholds: pROC's own thresholds (midpoints between neighbouring observed values, plus -Inf and Inf).
+- Cut-off criteria:
+  - `youden`: maximise sensitivity + specificity - 1.
+  - `closestTopLeft`: minimise (1 - sensitivity)^2 + (1 - specificity)^2.
+  - `fixedSensitivity`: among thresholds with sensitivity >= the value, the one with the highest specificity.
+  - `fixedSpecificity`: among thresholds with specificity >= the value, the one with the highest sensitivity.
+  - `threshold`: classify with the given value, using the same rule as pROC for that direction.
+  - Ties for the best value: one row per tied threshold, with a footnote.
+  - Ties are found with exact integer arithmetic on the counts. On floating-point near-ties this can give more tied thresholds than pROC `coords(x = "best")`, which compares floating-point proportions. The module is the correct one there. Example: Youden, direction `"lower"`, cases 1 3 3 5 7 1 2 6 2 7 1 6, controls 4 2 8 8 5 1 2 2 7 5 5 3. TP + TN is 14 (out of 24) at 1.5, 3.5 and 7.5, an exact score of 168 at each, so all three are tied, but pROC returns only 3.5 and 7.5.
+- At the chosen threshold: TP, FP, TN, FN counts from the per-marker data.
+  - Sensitivity = TP / (TP + FN), CI Clopper-Pearson (`binom.test`) at `ciLevel`. Specificity likewise with TN / (TN + FP).
+  - PPV and NPV from sensitivity, specificity and prevalence p (sample prevalence = n positive / n), by Bayes' rule: PPV = se p / (se p + (1 - sp)(1 - p)), NPV = sp (1 - p) / (sp (1 - p) + (1 - se) p).
+  - LR+ = se / (1 - sp), LR- = (1 - se) / sp. Undefined (division by zero) is shown as an empty cell with a footnote.
+  - Accuracy = (TP + TN) / n (sample accuracy, not prevalence-weighted). Youden's J = se + sp - 1.
+- Comparison: `roc.test(method = "delong", paired = TRUE)` on the listwise data; difference = AUC first - AUC second (markers in the order given); CI for the difference at `ciLevel`. When the SE of the difference is 0, z and p are empty with a footnote (pROC would report z = 0, p = 1).
+- Coordinates table: every pROC threshold with sensitivity, specificity, PPV, NPV (at the chosen prevalence).
+
+## Output elements (jaspResults names and column names)
+
+- `aucTable`: `marker`, `nPositive`, `nNegative`, `auc`, `se`, `lower`, `upper`, `z`, `p`.
+- `cutoffTable`: `marker`, `criterion`, `threshold`, `sensitivity`, `sensitivityLower`, `sensitivityUpper`, `specificity`, `specificityLower`, `specificityUpper`, `ppv`, `npv`, `lrPositive`, `lrNegative`, `accuracy`, `youden`.
+- `comparisonTable` (when `compareMarkers`): `marker1`, `marker2`, `n`, `difference`, `lower`, `upper`, `z`, `p`.
+- `coordinatesTable` (when on): `marker`, `threshold`, `sensitivity`, `specificity`, `ppv`, `npv`.
+- `rocPlot`, `thresholdPlot`.
+- Errors (whole analysis): outcome without exactly 2 levels after removing missing values (message names the levels found); `positiveLevel` not among the levels present.
+- Per-marker problems (constant marker, no cases in one class): that marker's rows show empty cells with a footnote, the other markers still run.

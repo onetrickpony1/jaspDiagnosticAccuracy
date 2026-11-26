@@ -1,0 +1,25 @@
+Package: jaspDiagnosticAccuracy
+Type: Package
+Title: Diagnostic Accuracy
+Version: 0.1.0
+Date: 2026-11-25
+Author: onetrickpony1
+Maintainer: onetrickpony1 <311002920+onetrickpony1@users.noreply.github.com>
+Description: ROC curves and diagnostic accuracy for JASP. Estimates the area
+  under the ROC curve with confidence intervals, compares markers, and reports
+  sensitivity, specificity, predictive values and likelihood ratios at a
+  chosen cut-off.
+License: GPL (>= 3)
+Encoding: UTF-8
+Imports:
+  ggplot2,
+  jaspBase,
+  jaspGraphs,
+  pROC,
+  stats,
+  utils
+Suggests:
+  testthat
+Remotes:
+  jasp-stats/jaspBase,
+  jasp-stats/jaspGraphs
