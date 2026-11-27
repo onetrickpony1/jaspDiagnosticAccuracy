@@ -44,7 +44,7 @@ jobs:
         run: |
           jaspModuleTools::compile("./", workdir = "./workdir", resultdir = "./bundles_build",
                                    bundleAll = TRUE, buildforJaspVersion = "0.96.0",
-                                   includeInManifest = list(version = read.dcf("DESCRIPTION")[1, "Version"]))
+                                   includeInManifest = list(version = unname(read.dcf("DESCRIPTION")[1, "Version"])))
         shell: Rscript {0}
 
       - uses: actions/upload-artifact@v7
