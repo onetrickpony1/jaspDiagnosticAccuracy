@@ -107,7 +107,13 @@ The module is not in JASP's Module Library. There are two ways to install it.
 
 ### From a release file
 
-The [releases page](https://github.com/onetrickpony1/jaspDiagnosticAccuracy/releases) has a `.JASPModule` file for Linux (Flatpak, x86-64), Windows (x86-64) and macOS (Apple silicon). Download the file for your system. In JASP 0.99.0 the **Install Local Module** item shows only in Developer mode, so first open Menu (☰), Preferences, Advanced, and tick **Developer mode**. Then click the **+** icon (top right), choose **Install Local Module** and pick the file. A **Diagnostic Accuracy** button appears in the ribbon. The Linux file was tested in the JASP 0.99.0 Flatpak; the Windows and macOS files have not been tested in JASP.
+The [releases page](https://github.com/onetrickpony1/jaspDiagnosticAccuracy/releases) has a `.JASPModule` file for Linux (Flatpak, x86-64), Windows (x86-64) and macOS (Apple silicon). Download the file for your system. Then, in JASP:
+
+1. In JASP 0.99.0 the **Install Local Module** item shows only in Developer mode. Open Menu (☰), Preferences, Advanced, and tick **Developer mode**. On Windows this also turns off **Sandbox engines**, and JASP asks you to restart. You can tick Sandbox engines on again: the installed module works with it on. Restart JASP.
+2. Click the **+** icon (top right), choose **Install Local Module** and pick the file. A **Diagnostic Accuracy** button appears in the ribbon.
+3. After a restart of JASP the module may be unticked in the **+** menu, and its button gone from the ribbon. Tick it in the **+** menu, or open a `.jasp` file that uses it.
+
+The Linux file was tested in the JASP 0.99.0 Flatpak and the Windows file in JASP 0.99.0 on Windows 10. The macOS file has not been tested in JASP.
 
 ### As a development module
 

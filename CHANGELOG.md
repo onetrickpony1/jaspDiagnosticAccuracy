@@ -6,7 +6,7 @@
 
 - Three example files in `examples/`: the aSAH biomarkers, the CT ratings of Hanley and McNeil (1982), and a simulated screening study. The aSAH example is saved again with this version.
 - Screenshots in the README.
-- Installable module files (`.JASPModule`) for Linux (Flatpak), Windows and macOS (Apple silicon), on the releases page. The README describes how to install them.
+- Installable module files (`.JASPModule`) for Linux (Flatpak), Windows and macOS (Apple silicon), on the releases page. The README describes how to install them. In JASP 0.99.0 the **Install Local Module** item needs Developer mode.
 - Clear error messages when an option is outside its range (confidence level, number of bootstrap samples, fixed sensitivity or specificity, threshold, custom prevalence), instead of a crash or a missing row.
 - Empty outcome cells count as missing, as elsewhere in JASP.
 - Footnotes use the module's own messages when pROC cannot compute a curve, interval or comparison.
