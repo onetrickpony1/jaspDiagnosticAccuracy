@@ -12,3 +12,4 @@
 ^tests/testthat/Rplots\.pdf$
 ^CHANGELOG\.md$
 ^screenshots$
+^SECURITY\.md$

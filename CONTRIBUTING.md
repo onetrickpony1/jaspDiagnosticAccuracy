@@ -44,6 +44,10 @@ An agent can do careful, repetitive checking that takes a person hours. The modu
 - Read what your agent wrote before you post it, and remove anything private (names, local paths, your own data).
 - Say in the issue or pull request that an agent did the work, and which one.
 
+## Security research
+
+Security research on this module is welcome, under the safe harbour terms in [SECURITY.md](SECURITY.md). Test only on your own computer and your own data. Report what you find privately, through **Report a vulnerability** on this repository's Security tab, not in a public issue. Problems in JASP itself belong with the JASP team.
+
 ## Licence
 
 The module is licensed under the GNU General Public License, version 3 or later (see [LICENSE](LICENSE)). By contributing, you agree that your contribution is licensed in the same way.
