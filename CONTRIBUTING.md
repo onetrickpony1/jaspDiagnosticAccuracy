@@ -41,8 +41,7 @@ An agent can do careful, repetitive checking that takes a person hours. The modu
 - Open an issue with your findings first. Open a pull request only for a change you have checked: the tests pass (AGENTS.md says how), and the pull request says how the result was verified.
 - Every number needs a source you name: another program, a paper, or a calculation written out independently of the module. A value taken from the module's own output is not a check.
 - Keep each issue or pull request to one topic.
-- Read what your agent wrote before you post it, and remove anything private (names, local paths, your own data).
-- Say in the issue or pull request that an agent did the work, and which one.
+- You are responsible for everything you post, whoever or whatever wrote it. Read it first, make sure it is right, and remove anything private (names, local paths, your own data). Once posted, it is your work: the credit and the blame are yours.
 
 ## Security research
 
