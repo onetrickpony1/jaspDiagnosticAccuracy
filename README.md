@@ -12,7 +12,7 @@
 
 **JASP Diagnostic Accuracy module** is a community add-on module for JASP. It has one analysis, **ROC Curve**.
 
-**Work in progress** (version 0.1.0): options and output may still change.
+**Work in progress** (version 0.1.1): options and output may still change.
 
 An ROC curve shows how well a test score separates two groups, for example patients with and without a disease. The score can be a lab value, a rating or a risk score. In this module the score is called a marker.
 
@@ -30,7 +30,7 @@ The analysis answers questions such as:
 - **Positive level**: the level that counts as positive. By default this is the second level.
 - **Test Variables**: one or more markers (scale or ordinal).
 - **Direction**: "Higher values indicate positive" (the default) or "Lower values indicate positive". The direction is never chosen from the data.
-- **AUC Confidence Interval**: DeLong (the default) or a stratified bootstrap (100 to 100000 replicates, 2000 by default).
+- **AUC Confidence Interval**: DeLong (the default) or a stratified bootstrap (100 to 100,000 bootstrap samples, 2,000 by default).
 - **Confidence level**: 95% by default. It applies to every interval in the output.
 - **Cut-off table** (off by default), with the **Cut-off Criterion**: Youden index (the default), closest to (0, 1), fixed sensitivity, fixed specificity, or a threshold you enter.
 - **Prevalence for PPV and NPV**: the sample prevalence (the default) or a value you enter.
@@ -56,7 +56,7 @@ Footnotes give the positive level and the direction (AUC table), the classificat
 
 <img src='https://www.r-project.org/logo/Rlogo.svg' width='100' height='78' align='right'/>
 
-- **pROC**: ROC curves, AUC, DeLong standard errors and intervals, and the paired DeLong test ([pROC on CRAN](https://cran.r-project.org/package=pROC)).
+- **pROC**: the ROC curves, the AUC and the DeLong placement values come from pROC; the DeLong standard error, interval and test use pROC's formulas ([pROC on CRAN](https://cran.r-project.org/package=pROC)).
 - **stats** (part of R): Clopper-Pearson intervals with `binom.test`.
 
 The bootstrap interval, the choice of cut-off and the statistics at a cut-off are the module's own R code. They use pROC's thresholds.
@@ -97,11 +97,11 @@ On Windows (from an early trial), after each restart of JASP, choose **Install D
 
 ## Example
 
-`examples/rocCurve-aSAH.jasp` holds the `aSAH` data from pROC (113 patients with an aneurysmal subarachnoid haemorrhage) with one ROC Curve analysis. The outcome is `outcome` with Poor as the positive level, and the markers are s100b, ndka and wfns. The cut-off table (Youden index), the paired comparison and the ROC plot are switched on. Open it in JASP with the module loaded. The file holds saved results, which show even if the module did not load. To check that the module runs, change an option, for example the confidence level, and see that the tables update.
+`examples/rocCurve-aSAH.jasp` holds the `aSAH` data from pROC (113 patients with an aneurysmal subarachnoid haemorrhage) with one ROC Curve analysis. The outcome is `outcome` with Poor as the positive level, and the markers are s100b, ndka and wfns. The cut-off table (Youden index), the paired comparison and the ROC plot are switched on. The file was saved with version 0.1.0, which used two option names that 0.1.1 renamed; `inst/Upgrades.qml` gives JASP the new names. Open it in JASP with the module loaded. The file holds saved results, which show even if the module did not load. To check that the module runs, change an option, for example the confidence level, and see that the tables update.
 
 ## Validation
 
-The reference values were worked out without the module's code, in base R (`dev/validation/delong.R` and `cutoffs.R`). The table lists what was checked against a second source. The script is `dev/validation/reference.R`; the details, the data and every source are in `dev/validation/README.md`. A run on 2026-11-26 in the R of JASP 0.99.0 (R 4.5.2, pROC 1.19.0.1, ROCR 1.0-11) made 146 checks, and all of them agreed.
+The reference values were worked out without the module's code, in base R (`dev/validation/delong.R` and `cutoffs.R`). The table lists what was checked against a second source. The script is `dev/validation/reference.R`; the details, the data and every source are in `dev/validation/README.md`. A run on 2026-11-27 in the R of JASP 0.99.0 (R 4.5.2, pROC 1.19.0.1, ROCR 1.0-11) made 1,189 checks, and all of them agreed.
 
 | What was checked | Against | Agreement |
 |---|---|---|
@@ -112,6 +112,9 @@ The reference values were worked out without the module's code, in base R (`dev/
 | Every ROC point and the AUC, three `aSAH` markers, both directions | ROCR 1.0-11 | relative tolerance 1e-12 |
 | AUC and DeLong SE of the fitted probabilities of a one-predictor logistic regression (`glm`), three `aSAH` markers | the marker's own AUC and SE | relative tolerance 1e-12 |
 | Sensitivity and specificity intervals | `binom.test` (Clopper-Pearson) | the reference values are `binom.test`'s |
+| Random data: two seeds for each of n = 2, 3, 5, 20, 200, 2,000 and 20,000, three kinds of marker, both directions. AUC, DeLong SE and CI, the paired test, sensitivity and specificity at every threshold, and the best thresholds (Youden; closest to (0, 1) while n positive times n negative is below 2^26) | pROC `auc`, `var`, `ci.auc`, `roc.test`, `coords`; ROCR for the AUC up to n = 2,000 | relative tolerance 1e-12 (1e-9 for the paired z, p and CI) |
+| The stratified bootstrap interval, n = 10, 200 and 2,000, both directions, with the same seed (base R) | pROC `ci.auc` | relative tolerance 1e-12 |
+| One data set of 50,000 cases and 50,000 controls, one rounded marker and a noisy copy, direction "<": AUC, DeLong SE, the paired test, every threshold, the best Youden threshold and the bootstrap interval (100 samples, two seeds) | pROC `auc`, `var`, `roc.test`, `coords`, `ci.auc` | relative tolerance 1e-12 (1e-9 for the paired z, p and CI) |
 
 pROC has no test of AUC = 0.5 for a single marker. So the single-marker z and p were checked by formula: z = (AUC - 0.5) / SE and its two-sided normal p, with the base-R DeLong SE, which agrees with pROC's `var`.
 

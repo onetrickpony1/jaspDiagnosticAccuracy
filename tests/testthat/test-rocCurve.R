@@ -8,112 +8,7 @@ context("ROC Curve")
 # Tests marked "ASSUMPTION" depend on behaviour that dev/interface.md does not fix exactly; the note next
 # to each says what is assumed.
 
-# ---------------------------------------------------------------------------------------------- helpers
-
-# jaspTools looks up the R function by this name and finds inst/qml/RocCurve.qml through the func entry in
-# inst/Description.qml (jaspTools getQMLFile()), so the name is the R function's, not the form's.
-analysisName <- "rocCurve"
-
-readTestData <- function(file) {
-  df <- utils::read.csv(testthat::test_path(file), stringsAsFactors = FALSE)
-  df
-}
-
-asahData <- function() {
-  df <- readTestData("aSAH.csv")
-  df$outcome <- factor(df$outcome, levels = c("Good", "Poor"))
-  df$gender  <- factor(df$gender)
-  df
-}
-
-rocOptions <- function(tests, outcome = "outcome", positiveLevel = "Poor") {
-  options <- jaspTools::analysisOptions(analysisName)
-  options$outcome       <- outcome
-  options$positiveLevel <- positiveLevel
-  options$tests         <- tests
-  options$cutoffTable   <- TRUE   # opt-in since 2026-11-26 (progressive disclosure); most tests check it
-  options$rocPlot       <- FALSE
-  options$thresholdPlot <- FALSE
-  options
-}
-
-# Finds an output element by its name anywhere in the results tree (top level or inside containers,
-# where jaspResults names it "<container>_<name>").
-findElement <- function(x, name) {
-  if (!is.list(x)) return(NULL)
-  nms <- names(x)
-  if (!is.null(nms)) {
-    hit <- which(nms == name | endsWith(nms, paste0("_", name)))
-    for (i in hit) if (is.list(x[[i]])) return(x[[i]])
-  }
-  for (el in x) {
-    found <- findElement(el, name)
-    if (!is.null(found)) return(found)
-  }
-  NULL
-}
-
-getTableElement <- function(results, name) {
-  el <- findElement(results[["results"]], name)
-  testthat::expect_false(is.null(el), label = paste("element", name, "exists"))
-  el
-}
-
-getRows <- function(results, name) getTableElement(results, name)[["data"]]
-
-rowsFor <- function(rows, column, value) Filter(function(r) identical(as.character(r[[column]]), as.character(value)), rows)
-
-rowFor <- function(rows, column, value) {
-  hit <- rowsFor(rows, column, value)
-  testthat::expect_equal(length(hit), 1L, label = paste0("number of rows with ", column, " = ", value))
-  if (length(hit) == 0) return(list())
-  hit[[1]]
-}
-
-footnoteText <- function(el) {
-  fn <- el[["footnotes"]]
-  if (is.null(fn) || length(fn) == 0) return("")
-  paste(vapply(fn, function(f) paste(as.character(f[["text"]]), collapse = " "), ""), collapse = " | ")
-}
-
-# A mixed cell (jaspBase::createMixedRow) arrives as list(value, type, format); a plain cell as its value.
-cellValue <- function(x) if (is.list(x) && !is.null(x[["value"]])) x[["value"]] else x
-
-isEmptyCell <- function(x) is.null(x) || length(x) == 0 || identical(x, "") || (is.numeric(x) && is.na(x)) || identical(x, ".")
-
-expectCells <- function(row, expected, tolerance = 1e-6, label = "") {
-  for (nm in names(expected)) {
-    testthat::expect_false(is.null(row[[nm]]), label = paste(label, nm, "present"))
-    if (!is.null(row[[nm]]))
-      testthat::expect_equal(as.numeric(cellValue(row[[nm]])), expected[[nm]], tolerance = tolerance, label = paste(label, nm))
-  }
-}
-
-expectNoError <- function(results) {
-  testthat::expect_identical(results[["status"]], "complete", label = "analysis status")
-}
-
-expectValidationError <- function(results, pattern = NULL) {
-  testthat::expect_true(results[["status"]] %in% c("validationError", "error"), label = "analysis stops with an error")
-  if (!is.null(pattern))
-    testthat::expect_match(as.character(results[["results"]][["errorMessage"]]), pattern)
-}
-
-# Reference rows (dev/validation/reference-values.csv)
-refAuc <- list(
-  s100b.higher = c(nPositive = 41, nNegative = 72, auc = 0.731368563685637, se = 0.0516592920700373,
-                   lower = 0.630118211761618, upper = 0.832618915609656, z = 4.47874050174668, p = 7.50847432494133e-06),
-  ndka.higher  = c(nPositive = 41, nNegative = 72, auc = 0.611957994579946, se = 0.0564872600626693,
-                   lower = 0.501244999271703, upper = 0.722670989888189, z = 1.98200433965787, p = 0.0474787549469322),
-  wfns.higher  = c(nPositive = 41, nNegative = 72, auc = 0.823678861788618, se = 0.0383394667258563,
-                   lower = 0.748534887818768, upper = 0.898822835758468, z = 8.44244559015053, p = 3.10766092766436e-17),
-  s100b.lower  = c(nPositive = 41, nNegative = 72, auc = 0.268631436314363, se = 0.0516592920700373,
-                   lower = 0.167381084390344, upper = 0.369881788238382, z = -4.47874050174668, p = 7.50847432494133e-06),
-  ndka.lower   = c(nPositive = 41, nNegative = 72, auc = 0.388042005420054, se = 0.0564872600626693,
-                   lower = 0.277329010111811, upper = 0.498755000728297, z = -1.98200433965787, p = 0.0474787549469322),
-  wfns.lower   = c(nPositive = 41, nNegative = 72, auc = 0.176321138211382, se = 0.0383394667258563,
-                   lower = 0.101177164241532, upper = 0.251465112181232, z = -8.44244559015053, p = 3.10766092766436e-17)
-)
+# The helpers (rocOptions, getRows, expectCells, ...) and refAuc are in helper-rocCurve.R.
 
 # ---------------------------------------------------------------------------------------------- AUC table
 
@@ -201,7 +96,7 @@ test_that("Paired DeLong comparison matches roc.test and pROC's own test values 
   # ASSUMPTION: with markers s100b, ndka, wfns the table has the three pairs in the order given
   # ((1,2), (1,3), (2,3)), difference = first - second.
   options <- rocOptions(c("s100b", "ndka", "wfns"))
-  options$compareMarkers <- TRUE
+  options$comparisonTable <- TRUE
   results <- jaspTools::runAnalysis(analysisName, asahData(), options)
   expectNoError(results)
   rows <- getRows(results, "comparisonTable")
@@ -220,7 +115,7 @@ test_that("Paired comparison, lower direction, matches the SAS DeLong contrasts 
   df$popind <- factor(df$popind, levels = c("0", "1"))
   options <- rocOptions(c("alb", "totscore", "tp"), outcome = "popind", positiveLevel = "0")
   options$direction <- "lower"
-  options$compareMarkers <- TRUE
+  options$comparisonTable <- TRUE
   results <- jaspTools::runAnalysis(analysisName, df, options)
   rows <- getRows(results, "comparisonTable")
   pick <- function(a, b) { hit <- Filter(function(r) r$marker1 == a && r$marker2 == b, rows); expect_equal(length(hit), 1L); hit[[1]] }
@@ -241,7 +136,7 @@ test_that("Missing values: per-marker complete cases in the AUC table, listwise 
   df <- asahData()
   df$ndka[1:5] <- NA; df$s100b[6:8] <- NA; df$outcome[9] <- NA
   options <- rocOptions(c("s100b", "ndka"))
-  options$compareMarkers <- TRUE
+  options$comparisonTable <- TRUE
   results <- jaspTools::runAnalysis(analysisName, df, options)
   expectNoError(results)
   rows <- getRows(results, "aucTable")
@@ -447,24 +342,62 @@ test_that("Coordinates table lists every pROC threshold with sensitivity, specif
   }
 })
 
+test_that("Coordinates table with a custom prevalence: PPV and NPV by Bayes' rule at that prevalence (wfns)", {
+  # dev/validation/reference.R, aSAH.wfns.coord<k>.prev0.2: se = TP / 41 and sp = TN / 72 at each threshold, then
+  # PPV = se p / (se p + (1 - sp)(1 - p)) and NPV = sp (1 - p) / (sp (1 - p) + (1 - se) p) with p = 0.2.
+  options <- rocOptions("wfns")
+  options$cutoffTable <- FALSE
+  options$coordinatesTable <- TRUE
+  options$prevalence <- "custom"
+  options$prevalenceValue <- 0.2
+  results <- jaspTools::runAnalysis(analysisName, asahData(), options)
+  expectNoError(results)
+  rows <- getRows(results, "coordinatesTable")
+  expect_equal(length(rows), 6L)
+  # pROC's order for higher values positive: -Inf, 1.5, 2.5, 3.5, 4.5, Inf.
+  finite <- suppressWarnings(vapply(rows, function(r) as.numeric(cellValue(r[["threshold"]])), 0))
+  expect_equal(finite[2:5], c(1.5, 2.5, 3.5, 4.5))
+  ppv <- c(0.2, 0.328497894244268, 0.44141689373297, 0.4875, 0.663934426229508, NA)
+  npv <- c(NA, 0.976819059884095, 0.902665121668598, 0.901098901098901, 0.870705808869457, 0.8)
+  for (k in seq_along(rows)) {
+    for (col in c("ppv", "npv")) {
+      expected <- if (col == "ppv") ppv[k] else npv[k]
+      if (is.na(expected))
+        expect_true(isEmptyCell(rows[[k]][[col]]), label = paste("row", k, col, "is empty"))
+      else
+        expect_equal(as.numeric(rows[[k]][[col]]), expected, tolerance = 1e-12, label = paste("row", k, col))
+    }
+  }
+})
+
 # ---------------------------------------------------------------------------------------------- bootstrap
 
-test_that("Bootstrap CI runs, brackets the AUC, keeps the DeLong SE and is reproducible with a seed", {
+test_that("Bootstrap CI with a seed equals pROC's stratified ci.auc on each run, and keeps the DeLong SE", {
+  # jaspBase runs analyses with RNGkind(sample.kind = "Rounding") (setLegacyRng in runJaspResults), so pROC's
+  # reference draws use the same sampler. Both runs of the analysis must give pROC's interval, so a seed set
+  # once per run (not carried over from an earlier run) gives the same result each time.
+  df <- asahData()
+  oldKind <- RNGkind()[3]
+  on.exit(suppressWarnings(RNGkind(sample.kind = oldKind)), add = TRUE)
+  suppressWarnings(RNGkind(sample.kind = "Rounding"))
+  fit <- pROC::roc(df$outcome, df$s100b, levels = c("Good", "Poor"), direction = "<", quiet = TRUE)
+  set.seed(1)
+  expected <- as.numeric(pROC::ci.auc(fit, method = "bootstrap", boot.n = 200, boot.stratified = TRUE))
+
   options <- rocOptions("s100b")
   options$aucCiMethod <- "bootstrap"
-  options$bootstrapReplicates <- 200
+  options$bootstrapSamples <- 200
   options$setSeed <- TRUE
   options$seed <- 1
-  r1 <- jaspTools::runAnalysis(analysisName, asahData(), options)
-  expectNoError(r1)
-  row1 <- rowFor(getRows(r1, "aucTable"), "marker", "s100b")
-  expectCells(row1, c(auc = 0.731368563685637, se = 0.0516592920700373, z = 4.47874050174668))
-  expect_true(as.numeric(row1$lower) < as.numeric(row1$auc) && as.numeric(row1$auc) < as.numeric(row1$upper))
-  expect_true(as.numeric(row1$lower) > 0.5 && as.numeric(row1$upper) <= 1)
-  expect_match(footnoteText(getTableElement(r1, "aucTable")), "bootstrap", ignore.case = TRUE)
-  r2 <- jaspTools::runAnalysis(analysisName, asahData(), options)
-  row2 <- rowFor(getRows(r2, "aucTable"), "marker", "s100b")
-  expect_equal(as.numeric(c(row2$lower, row2$upper)), as.numeric(c(row1$lower, row1$upper)))
+  for (run in 1:2) {
+    results <- jaspTools::runAnalysis(analysisName, df, options)
+    expectNoError(results)
+    row <- rowFor(getRows(results, "aucTable"), "marker", "s100b")
+    expectCells(row, c(auc = 0.731368563685637, se = 0.0516592920700373, z = 4.47874050174668,
+                       lower = expected[1], upper = expected[3]), tolerance = 1e-12, label = paste("run", run))
+    expect_match(footnoteText(getTableElement(results, "aucTable")),
+                 "The confidence interval is a percentile interval from 200 stratified bootstrap samples.", fixed = TRUE)
+  }
 })
 
 # ---------------------------------------------------------------------------------------------- cross-checks
@@ -518,7 +451,7 @@ test_that("Constant marker: empty cells and a footnote for that marker, the othe
   df <- asahData()
   df$constant <- 1
   options <- rocOptions(c("s100b", "constant"))
-  options$compareMarkers <- TRUE
+  options$comparisonTable <- TRUE
   results <- jaspTools::runAnalysis(analysisName, df, options)
   expectNoError(results)
   el <- getTableElement(results, "aucTable")
@@ -591,7 +524,7 @@ test_that("Huge values: s100b times 1e12 gives the same AUC, SE and cut-off stat
   df <- asahData()
   df$huge <- df$s100b * 1e12
   options <- rocOptions("huge")
-  options$compareMarkers <- FALSE
+  options$comparisonTable <- FALSE
   results <- jaspTools::runAnalysis(analysisName, df, options)
   expectNoError(results)
   expectCells(rowFor(getRows(results, "aucTable"), "marker", "huge"), refAuc$s100b.higher)
@@ -632,14 +565,14 @@ test_that("Empty unused outcome level is dropped: the analysis runs with the two
 
 # In plain jaspTools the column names reach R unencoded, so these tests check that labels are built from the
 # option values and that names which collide with JASP's encoded names ("JaspColumn_<n>_Encoded") or with each
-# other (m, n, a, code, digits) do not mix up markers. The app's own encoding of column names was checked
-# separately, in the running JASP app.
+# other (m, n, a, code, digits) do not mix up markers. The test "Encoded column names" further down runs the
+# analysis on encoded names, as JASP does.
 
 trapRun <- function(map, compare = TRUE) {
   df <- asahData()[, c("outcome", "s100b", "ndka", "wfns")]
   names(df) <- unname(map[names(df)])
   options <- rocOptions(unname(map[c("s100b", "ndka", "wfns")]), outcome = map[["outcome"]])
-  options$compareMarkers <- compare
+  options$comparisonTable <- compare
   options$coordinatesTable <- TRUE
   jaspTools::runAnalysis(analysisName, df, options)
 }
@@ -675,13 +608,12 @@ test_that("Trap names that are prefixes of each other (x, xx, x1)", {
 })
 
 test_that("Digit names (0, 1, 10, 2)", {
-  # jaspTools may not handle names that are numbers in plain mode (docs/app-encoding.md, "plainTrap");
-  # if this fails inside jaspTools before the analysis runs, it is not a module bug.
+  # Column names that are numbers must not be taken for row or column positions anywhere in the output.
   map <- c(outcome = "0", s100b = "1", ndka = "10", wfns = "2")
   checkTrap(trapRun(map), map)
 })
 
-# ---------------------------------------------------------------------------------------------- regressions (review, 2026-11-26)
+# ---------------------------------------------------------------------------------------------- defaults, threshold plot steps, cut-off selection, bootstrap, data handling
 
 # Every expected value below comes from hand counts, base R or pROC called directly.
 
@@ -761,6 +693,27 @@ test_that("Cut-off selection compares exactly on counts: J values 1e-9 apart are
   }
 })
 
+test_that("Closest to (0, 1): an exact tie is kept when the double-precision sums differ (n = 35440143)", {
+  # (p^2 + q^2)(r^2 + s^2) = (pr - qs)^2 + (ps + qr)^2 = (pr + qs)^2 + (ps - qr)^2. With p = 4092, q = 4285,
+  # r = 4767, s = 3669, the points (fn, fp) = (3784899, 35440143) and (35228229, 5413047) have the same
+  # fn^2 + fp^2, so the same squared distance to (0, 1). With n positive and n negative cases,
+  # (fn * n)^2 + (fp * n)^2 is the same whole number for both (each product is below 2^53), but its two double
+  # sums differ by one unit in the last place. Hand rule: both points are closest, so both are kept; a third
+  # point (fn = fp = n) is farther.
+  n  <- 35440143
+  fn <- c(4092 * 4767 - 4285 * 3669, 4092 * 4767 + 4285 * 3669, n)
+  fp <- c(4092 * 3669 + 4285 * 4767, 4092 * 3669 - 4285 * 4767, n)
+  fp <- abs(fp)
+  expect_identical(fn[1:2], c(3784899, 35228229))
+  expect_identical(fp[1:2], c(35440143, 5413047))
+  expect_false(((fn[1] * n)^2 + (fp[1] * n)^2) == ((fn[2] * n)^2 + (fp[2] * n)^2))
+  info <- list(nPositive = n, nNegative = n,
+               fit = list(thresholds = c(1, 2, 3), sensitivities = (n - fn) / n, specificities = (n - fp) / n))
+  chosen <- jaspDiagnosticAccuracy:::.rocSelectCutoff(info, list(cutoffCriterion = "closestTopLeft"))
+  expect_equal(chosen$threshold, c(1, 2))
+  expect_equal(chosen$fn, fn[1:2])
+})
+
 test_that("Fixed sensitivity: a sensitivity equal to the value typed counts (7/10 and 0.7)", {
   # Cases 0.5, 0.6, 0.7 and 20 to 26; controls 1 to 10. With sensitivity at least 0.7, the best specificity is
   # 1 at threshold 15 (tp 7, tn 10). Without equality, sensitivity 0.8 would be needed: threshold 0.65, sp 0.
@@ -812,7 +765,7 @@ test_that("Comparison with a zero SE of the difference: z and p are empty, with 
     expect_equal(unname(direct$statistic), 0)
 
     options <- rocOptions(pair, positiveLevel = "p")
-    options$compareMarkers <- TRUE
+    options$comparisonTable <- TRUE
     results <- jaspTools::runAnalysis(analysisName, df, options)
     expectNoError(results)
     el <- getTableElement(results, "comparisonTable")
@@ -852,7 +805,7 @@ test_that("Bootstrap CI equals pROC's ci.auc (stratified) with the same seed, to
   # Through the analysis, with JASP's seed control (seed 7 is set again before each marker).
   options <- rocOptions(c("s100b", "ndka"))
   options$aucCiMethod <- "bootstrap"
-  options$bootstrapReplicates <- 250
+  options$bootstrapSamples <- 250
   options$setSeed <- TRUE
   options$seed <- 7
   results <- jaspTools::runAnalysis(analysisName, df, options)
@@ -863,6 +816,185 @@ test_that("Bootstrap CI equals pROC's ci.auc (stratified) with the same seed, to
     ci <- as.numeric(pROC::ci.auc(fit, method = "bootstrap", boot.n = 250, boot.stratified = TRUE))
     expectCells(rowFor(rows, "marker", marker), c(lower = ci[1], upper = ci[3]), tolerance = 1e-12, label = marker)
   }
+})
+
+test_that("Reruns keep the bootstrap replicates until the data, the replicates or the seed change", {
+  # JASP reruns an analysis with the results and the state objects of the run before, and jaspResults keeps
+  # the objects whose dependencies did not change (jaspBase src/jaspResults.cpp: loadResults and
+  # pruneInvalidatedData). jaspTools does not, so this test saves both between runs, as JASP does: the results
+  # through jaspResults' own save location, the state objects in the file .retrieveState() reads.
+  stateDir <- tempfile("rocstate")
+  dir.create(stateDir)
+  jaspBase:::setSaveLocation(stateDir, "jaspResults.json")
+  jaspBase:::setWriteSealLocation(stateDir, "seal.txt")
+  assign(".requestStateFileNameNative", function() list(root = stateDir, relativePath = "state.RData"), globalenv())
+  draws <- new.env()
+  draws$n <- 0
+  suppressMessages(trace(".rocBootstrapAucs", where = asNamespace("jaspDiagnosticAccuracy"), print = FALSE,
+                         tracer = bquote(assign("n", get("n", envir = .(draws)) + 1, envir = .(draws)))))
+  on.exit({
+    suppressMessages(untrace(".rocBootstrapAucs", where = asNamespace("jaspDiagnosticAccuracy")))
+    jaspBase:::setSaveLocation("", "")
+    jaspBase:::setWriteSealLocation("", "")
+    rm(".requestStateFileNameNative", envir = globalenv())
+    unlink(stateDir, recursive = TRUE)
+  }, add = TRUE)
+  oldKind <- RNGkind()[3]
+  on.exit(suppressWarnings(RNGkind(sample.kind = oldKind)), add = TRUE)
+  suppressWarnings(RNGkind(sample.kind = "Rounding"))
+
+  df <- asahData()
+  rerun <- function(options) {
+    before <- draws$n
+    results <- jaspTools::runAnalysis(analysisName, df, options)
+    expectNoError(results)
+    state <- results[["state"]]
+    save(state, file = file.path(stateDir, "state.RData"))
+    list(drawn = draws$n - before, row = getRows(results, "aucTable")[[1]])
+  }
+  procCi <- function(direction, seed, reps, level) {
+    fit <- pROC::roc(df$outcome, df$s100b, levels = c("Good", "Poor"), direction = direction, quiet = TRUE)
+    set.seed(seed)
+    ci <- as.numeric(pROC::ci.auc(fit, method = "bootstrap", boot.n = reps, boot.stratified = TRUE, conf.level = level))
+    c(lower = ci[1], upper = ci[3])
+  }
+
+  options <- rocOptions("s100b")
+  options$cutoffTable <- FALSE
+  options$aucCiMethod <- "bootstrap"
+  options$bootstrapSamples <- 250
+  options$setSeed <- TRUE
+  options$seed <- 7
+  # Each step: the options changed, the number of markers bootstrapped again, and pROC's interval for s100b with
+  # the direction, seed, replicates and level of that step (NULL: not checked).
+  steps <- list(
+    list(list(),                             1, list("<", 7, 250, 0.95)),
+    list(list(rocPlot = TRUE),               0, list("<", 7, 250, 0.95)),
+    list(list(ciLevel = 0.8),                0, list("<", 7, 250, 0.8)),
+    list(list(aucCiMethod = "delong"),       0, NULL),
+    list(list(aucCiMethod = "bootstrap"),    0, list("<", 7, 250, 0.8)),
+    list(list(seed = 8),                     1, list("<", 8, 250, 0.8)),
+    list(list(bootstrapSamples = 260),    1, list("<", 8, 260, 0.8)),
+    list(list(direction = "lower"),          1, list(">", 8, 260, 0.8)),
+    list(list(tests = c("s100b", "ndka")),   2, list(">", 8, 260, 0.8)),
+    list(list(setSeed = FALSE),              2, NULL),
+    list(list(seed = 9),                     0, NULL),
+    list(list(setSeed = TRUE),               2, list(">", 9, 260, 0.8))
+  )
+  for (i in seq_along(steps)) {
+    step <- steps[[i]]
+    for (name in names(step[[1]]))
+      options[[name]] <- step[[1]][[name]]
+    got <- rerun(options)
+    expect_equal(got$drawn, step[[2]], label = paste("step", i, "markers bootstrapped"))
+    if (!is.null(step[[3]]))
+      expectCells(got$row, do.call(procCi, step[[3]]), tolerance = 1e-12, label = paste("step", i))
+  }
+})
+
+test_that("Large data (50,000 cases and 50,000 controls): every table agrees with pROC, with no missing cell", {
+  # nPositive * nNegative = 2.5e9 is above 2^31 - 1, the largest integer R stores. As an integer product it would
+  # be NA, and every bootstrap AUC with it. Expected values: pROC run directly on the same data (auc, var,
+  # ci.auc with the bootstrap and the same seed under sample.kind "Rounding", coords, roc.test).
+  oldKind <- RNGkind()[3]
+  on.exit(suppressWarnings(RNGkind(sample.kind = oldKind)), add = TRUE)
+  suppressWarnings(RNGkind(sample.kind = "Rounding"))
+  set.seed(31)
+  n <- 100000
+  isCase <- rep(c(FALSE, TRUE), each = n / 2)
+  df <- data.frame(outcome = factor(ifelse(isCase, "p", "n"), levels = c("n", "p")))
+  df$x1 <- round(rnorm(n) + 0.5 * isCase, 2)
+  df$x2 <- round(df$x1 + rnorm(n), 2)
+  expect_true(as.numeric(sum(isCase)) * sum(!isCase) > 2^31)
+  rocOf <- function(x) pROC::roc(df$outcome, x, levels = c("n", "p"), direction = "<", quiet = TRUE)
+  fits <- list(x1 = rocOf(df$x1), x2 = rocOf(df$x2))
+
+  options <- rocOptions(c("x1", "x2"), positiveLevel = "p")
+  options$aucCiMethod      <- "bootstrap"
+  options$bootstrapSamples <- 100
+  options$setSeed          <- TRUE
+  options$seed             <- 11
+  options$coordinatesTable <- TRUE
+  options$comparisonTable  <- TRUE
+  results <- jaspTools::runAnalysis(analysisName, df, options)
+  expectNoError(results)
+
+  aucEl <- getTableElement(results, "aucTable")
+  expect_false(grepl("could not be computed", footnoteText(aucEl), fixed = TRUE))
+  cutRows <- getRows(results, "cutoffTable")
+  coordRows <- getRows(results, "coordinatesTable")
+  for (marker in c("x1", "x2")) {
+    fit <- fits[[marker]]
+    set.seed(11)
+    boot <- as.numeric(pROC::ci.auc(fit, method = "bootstrap", boot.n = 100, boot.stratified = TRUE))
+    auc <- as.numeric(pROC::auc(fit))
+    se <- sqrt(as.numeric(pROC::var(fit)))
+    expectCells(rowFor(aucEl$data, "marker", marker),
+                c(nPositive = 50000, nNegative = 50000, auc = auc, se = se, lower = boot[1], upper = boot[3],
+                  z = (auc - 0.5) / se), tolerance = 1e-12, label = marker)
+
+    best <- pROC::coords(fit, "best", best.method = "youden", ret = c("threshold", "sensitivity", "specificity"),
+                         transpose = FALSE)
+    expect_equal(nrow(best), 1L, label = paste(marker, "pROC best rows"))
+    expectCells(rowFor(cutRows, "marker", marker), unlist(best[1, ]), tolerance = 1e-12, label = paste(marker, "cut-off"))
+
+    all <- pROC::coords(fit, "all", ret = c("threshold", "sensitivity", "specificity"), transpose = FALSE)
+    rows <- rowsFor(coordRows, "marker", marker)
+    expect_equal(length(rows), nrow(all), label = paste(marker, "coordinate rows"))
+    # The first and last thresholds are -Inf and Inf; the others are compared as numbers.
+    got <- t(vapply(rows, function(r) suppressWarnings(as.numeric(c(cellValue(r$threshold), r$sensitivity, r$specificity))),
+                    numeric(3)))
+    inner <- 2:(nrow(all) - 1)
+    expect_equal(unname(got[inner, ]), unname(as.matrix(all)[inner, ]), tolerance = 1e-12, label = paste(marker, "coordinates"))
+    expect_equal(unname(got[, 2:3]), unname(as.matrix(all)[, 2:3]), tolerance = 1e-12, label = paste(marker, "end rows"))
+  }
+
+  test <- pROC::roc.test(fits$x1, fits$x2, method = "delong", paired = TRUE)
+  expectCells(getRows(results, "comparisonTable")[[1]],
+              c(n = n, difference = unname(test$estimate[1] - test$estimate[2]), lower = test$conf.int[1],
+                upper = test$conf.int[2], z = unname(test$statistic), p = test$p.value),
+              tolerance = 1e-9, label = "comparison")
+})
+
+test_that("Bootstrap replicate AUCs with a missing value give an empty interval, not an error", {
+  # quantile() stops on a missing value. The interval is then left empty and the AUC table gives a footnote.
+  info <- list(nPositive = 10, nNegative = 10)
+  options <- list(aucCiMethod = "bootstrap", ciLevel = 0.95)
+  expect_null(jaspDiagnosticAccuracy:::.rocAucCi(info, options, c(0.6, NA, 0.7)))
+  expect_equal(jaspDiagnosticAccuracy:::.rocAucCi(info, options, c(0.6, 0.8, 0.7)),
+               as.numeric(stats::quantile(c(0.6, 0.8, 0.7), c(0.025, 0.5, 0.975))))
+})
+
+test_that("A failed DeLong computation gets its own footnote, not the one about too few cases", {
+  # pROC's delongPlacements checks that the mean placement value equals the AUC and stops otherwise. Here it is
+  # made to stop. The AUC (pROC's) is still shown; the SE and the interval are empty, with their own footnote.
+  suppressMessages(trace(".rocDelongPlacements", where = asNamespace("jaspDiagnosticAccuracy"), print = FALSE,
+                         tracer = quote(stop("check failed"))))
+  on.exit(suppressMessages(untrace(".rocDelongPlacements", where = asNamespace("jaspDiagnosticAccuracy"))), add = TRUE)
+  df <- asahData()
+  results <- jaspTools::runAnalysis(analysisName, df, rocOptions("s100b"))
+  expectNoError(results)
+  el <- getTableElement(results, "aucTable")
+  row <- rowFor(el$data, "marker", "s100b")
+  expectCells(row, c(auc = refAuc$s100b.higher[["auc"]]), tolerance = 1e-12)
+  for (col in c("se", "lower", "upper", "z", "p"))
+    expect_true(isEmptyCell(row[[col]]), label = paste(col, "is empty"))
+  expect_match(footnoteText(el), "s100b: the standard error and the confidence interval could not be computed.", fixed = TRUE)
+  expect_false(grepl("at least two cases", footnoteText(el), fixed = TRUE))
+})
+
+test_that("Paired DeLong: a variance that rounds below zero gives NaN without a warning", {
+  # Placement values chosen so that the variance of the difference, computed term by term as pROC does, is
+  # -2.8e-17 instead of 0. pROC's sqrt() gives NaN with a warning "NaNs produced". The module keeps NaN (the
+  # table then shows empty z, p and CI, with a footnote) and gives no warning.
+  X  <- c(0x1.58103e58p-1, 0x1.9a6ccf8p-6, 0x1.9aba3bp-2, 0x1.998d4b8p-3)
+  Y  <- c(0x1.b68a71e6p-1, 0x1.f16a7862p-1, 0x1.4b7de4fcp-2, 0x1.7764de18p-1)
+  X2 <- c(0x1.58103e5800003p-1, 0x1.9a6ccf8p-6, 0x1.9aba3b0000003p-2, 0x1.998d4b8000003p-3)
+  Y2 <- c(0x1.b68a71e5ffffdp-1, 0x1.f16a786200004p-1, 0x1.4b7de4fbffffdp-2, 0x1.7764de17fffffp-1)
+  a <- list(nPositive = 4, nNegative = 4, auc = mean(X), placements = list(X = X, Y = Y, theta = mean(X)))
+  b <- list(nPositive = 4, nNegative = 4, auc = mean(X2), placements = list(X = X2, Y = Y2, theta = mean(X2)))
+  expect_silent(test <- jaspDiagnosticAccuracy:::.rocPairedDelong(a, b, 0.95))
+  expect_true(is.nan(test$lower) && is.nan(test$upper) && is.nan(test$z) && is.nan(test$p))
 })
 
 test_that("Outcome-levels error shows at most 10 levels, then 'and N more'", {
@@ -897,7 +1029,7 @@ test_that("Infinite values are treated as missing for that marker only, with a f
 
 test_that("A marker listed twice is used once: no duplicate rows and no self-comparison", {
   options <- rocOptions(c("s100b", "s100b", "wfns"))
-  options$compareMarkers <- TRUE
+  options$comparisonTable <- TRUE
   results <- jaspTools::runAnalysis(analysisName, asahData(), options)
   expectNoError(results)
   auc <- getRows(results, "aucTable")
@@ -910,7 +1042,7 @@ test_that("A marker listed twice is used once: no duplicate rows and no self-com
   expectCells(cmp[[1]], c(difference = -0.0923102981029811, z = -2.20898359144091))
 })
 
-# ---------------------------------------------------------------------------------------------- review fixes (round 2)
+# ---------------------------------------------------------------------------------------------- missing and infinite values, listwise comparison, extreme thresholds, dependencies
 
 test_that("Infinite values are reported once: not also counted as rows with a missing value", {
   # x = 1:5, Inf, 3:7, -Inf. Hand count: 2 infinite values, no other missing value.
@@ -942,7 +1074,7 @@ test_that("Comparison footnote names the listwise rows and the marker that empti
                    x = c(1:6, rep(NA, 6)), y = c(1, 3, 2, 5, 4, 6, 4, 7, 5, 8, 9, 3),
                    z = c(2, 1, 4, 3, 6, 5, 8, 7, 3, 9, 10, 6))
   options <- rocOptions(c("x", "y", "z"), positiveLevel = "p")
-  options$compareMarkers <- TRUE
+  options$comparisonTable <- TRUE
   results <- jaspTools::runAnalysis(analysisName, df, options)
   expectNoError(results)
   el <- getTableElement(results, "comparisonTable")
@@ -964,7 +1096,7 @@ test_that("Comparison footnote names the listwise rows and the marker that empti
   df2$y[10:12] <- NA
   df2$x <- c(1:6, NA, NA, NA, 7, 8, 9)
   options <- rocOptions(c("x", "y"), positiveLevel = "p")
-  options$compareMarkers <- TRUE
+  options$comparisonTable <- TRUE
   results <- jaspTools::runAnalysis(analysisName, df2, options)
   expectNoError(results)
   fn <- footnoteText(getTableElement(results, "comparisonTable"))
@@ -1039,12 +1171,12 @@ test_that("Threshold plot: values near the largest double keep finite axis limit
 test_that("AUC table depends on the replicates and the seed only under the bootstrap", {
   deps <- jaspDiagnosticAccuracy:::.rocAucTableDependencies
   delong <- deps(list(aucCiMethod = "delong", setSeed = TRUE))
-  expect_false(any(c("bootstrapReplicates", "setSeed", "seed") %in% delong))
+  expect_false(any(c("bootstrapSamples", "setSeed", "seed") %in% delong))
   expect_true(all(c("outcome", "positiveLevel", "tests", "direction", "aucCiMethod", "ciLevel") %in% delong))
   boot <- deps(list(aucCiMethod = "bootstrap", setSeed = TRUE))
-  expect_true(all(c("aucCiMethod", "ciLevel", "bootstrapReplicates", "setSeed", "seed") %in% boot))
+  expect_true(all(c("aucCiMethod", "ciLevel", "bootstrapSamples", "setSeed", "seed") %in% boot))
   bootNoSeed <- deps(list(aucCiMethod = "bootstrap", setSeed = FALSE))
-  expect_true(all(c("aucCiMethod", "bootstrapReplicates", "setSeed") %in% bootNoSeed))
+  expect_true(all(c("aucCiMethod", "bootstrapSamples", "setSeed") %in% bootNoSeed))
   expect_false("seed" %in% bootNoSeed)
 })
 
@@ -1079,7 +1211,7 @@ test_that("Exact ties: three Youden thresholds where pROC coords('best') returns
     expect_equal(as.numeric(r$youden), 14 / 12 - 1, tolerance = 1e-12)
 })
 
-# ---------------------------------------------------------------------------------------------- display (app check, 2026-11-26)
+# ---------------------------------------------------------------------------------------------- display: p values, threshold digits, plots
 
 # Expected values below come from jaspBase's source, hand arithmetic, base R or pROC called directly.
 
@@ -1093,7 +1225,7 @@ schemaField <- function(results, table, column) {
 test_that("Every p column uses JASP's p-value format, so a tiny p shows as < .001", {
   # jaspBase R/zzzWrappers.R (addColumnInfo, commit 5038e41): type "pvalue" gets the format "dp:3;p:.001".
   options <- rocOptions(c("s100b", "wfns"))
-  options$compareMarkers <- TRUE
+  options$comparisonTable <- TRUE
   results <- jaspTools::runAnalysis(analysisName, asahData(), options)
   expectNoError(results)
   for (table in c("aucTable", "comparisonTable")) {
@@ -1528,7 +1660,7 @@ test_that("Plots: when no marker has a curve, both plots show an error message",
   }
 })
 
-# ---------------------------------------------------------------------------------------------- regressions (review, 2026-11-26, second round)
+# ---------------------------------------------------------------------------------------------- threshold plot offsets, plot notes, exact decimals
 
 # Every expected value below comes from hand reasoning, base R or pROC called directly.
 
@@ -1678,4 +1810,181 @@ test_that("Threshold digits follow JASP's own choice of rounding: Intl.NumberFor
   expect_identical(sprintf("%.20f", 1000000.45), "1000000.44999999995343387127")
   expect_identical(jaspDiagnosticAccuracy:::.rocThresholdDigits(1000000.45, c(1000000.35, 1000000.5)),
                    list(digits = 8L, exact = TRUE))
+})
+
+# ---------------------------------------------------------------------------------------------- option ranges, empty outcome cells, encoded column names
+
+# The ranges are those of dev/interface.md. Options outside them stop the analysis with a message, instead of a
+# crash or output that means nothing.
+
+rangeData <- function() {
+  data.frame(y = factor(c(rep("1", 4), rep("0", 4)), levels = c("0", "1")), a = c(5, 6, 7, 2, 1, 2, 3, 8))
+}
+
+rangeOptions <- function(...) {
+  options <- rocOptions("a", outcome = "y", positiveLevel = "1")
+  options$coordinatesTable <- TRUE
+  options$rocPlot <- TRUE
+  changes <- list(...)
+  options[names(changes)] <- changes
+  options
+}
+
+expectRangeError <- function(options, message) {
+  results <- jaspTools::runAnalysis(analysisName, rangeData(), options)
+  expect_identical(results[["status"]], "validationError", label = paste("status for", message))
+  expect_identical(as.character(results[["results"]][["errorMessage"]]), message)
+}
+
+test_that("Fixed sensitivity outside (0, 1) stops with a message", {
+  msg <- "The value for fixed sensitivity must lie between 0 and 1, not at either end."
+  for (v in c(0, 1, 1.2, -1))
+    expectRangeError(rangeOptions(cutoffCriterion = "fixedSensitivity", fixedSensitivityValue = v), msg)
+})
+
+test_that("Fixed specificity outside (0, 1) stops with a message", {
+  msg <- "The value for fixed specificity must lie between 0 and 1, not at either end."
+  for (v in c(0, 1, 1.2))
+    expectRangeError(rangeOptions(cutoffCriterion = "fixedSpecificity", fixedSpecificityValue = v), msg)
+})
+
+test_that("A confidence level of 0, 1 or more stops with a message", {
+  msg <- "The confidence level must lie between 0% and 100%, not at either end."
+  for (v in c(0, 1, 1.5))
+    expectRangeError(rangeOptions(ciLevel = v), msg)
+})
+
+test_that("A threshold that is not a number stops with a message", {
+  msg <- "The threshold must be a number."
+  for (v in list(NaN, NA_real_))
+    expectRangeError(rangeOptions(cutoffCriterion = "threshold", thresholdValue = v), msg)
+})
+
+test_that("Bootstrap samples that are not a whole number from 100 to 100000 stop with a message", {
+  msg <- "The number of bootstrap samples must be a whole number from 100 to 100,000."
+  for (v in c(0, -5, 1, 50.5, 99, 100001))
+    expectRangeError(rangeOptions(aucCiMethod = "bootstrap", bootstrapSamples = v, setSeed = TRUE), msg)
+  # Under DeLong the replicates are not used, so they are not checked.
+  results <- jaspTools::runAnalysis(analysisName, rangeData(), rangeOptions(bootstrapSamples = 0))
+  expectNoError(results)
+})
+
+test_that("A custom prevalence outside (0, 1) stops with a message", {
+  msg <- "The custom prevalence must lie between 0 and 1, not at either end."
+  for (v in c(0, 1, -0.5, 2))
+    expectRangeError(rangeOptions(prevalence = "custom", prevalenceValue = v), msg)
+  # With the sample prevalence the custom value is not used, so it is not checked.
+  results <- jaspTools::runAnalysis(analysisName, rangeData(), rangeOptions(prevalenceValue = 2))
+  expectNoError(results)
+})
+
+test_that("Values inside the ranges run: fixed values near 0 and 1, 100 replicates, an infinite threshold", {
+  for (o in list(rangeOptions(cutoffCriterion = "fixedSensitivity", fixedSensitivityValue = 0.001),
+                 rangeOptions(cutoffCriterion = "fixedSpecificity", fixedSpecificityValue = 0.999),
+                 rangeOptions(aucCiMethod = "bootstrap", bootstrapSamples = 100, setSeed = TRUE),
+                 rangeOptions(cutoffCriterion = "threshold", thresholdValue = Inf))) {
+    results <- jaspTools::runAnalysis(analysisName, rangeData(), o)
+    expectNoError(results)
+    expect_equal(length(rowsFor(getRows(results, "cutoffTable"), "marker", "a")), 1L)
+  }
+})
+
+test_that("Empty outcome cells count as missing, as in JASP", {
+  # JASP treats an empty cell as missing (jasp-desktop CommonData/emptyvalues.cpp). The two rows with an empty
+  # outcome are left out, so the AUC is pROC's on the other six rows.
+  x <- c(1, 5, 2, 4, 3, 6, 10, 0)
+  y <- c("neg", "neg", "neg", "pos", "pos", "pos", "", "")
+  fit <- pROC::roc(y[1:6], x[1:6], levels = c("neg", "pos"), direction = "<", quiet = TRUE)
+  expectedAuc <- as.numeric(pROC::auc(fit))
+  expectedSe  <- sqrt(as.numeric(pROC::var(fit)))
+  for (outcome in list(y, factor(y, levels = c("", "neg", "pos")))) {
+    df <- data.frame(x = x)
+    df$outcome <- outcome
+    # An empty positive level means "not chosen": the second level of those present, pos.
+    options <- rocOptions("x", positiveLevel = "")
+    results <- jaspTools::runAnalysis(analysisName, df, options)
+    expectNoError(results)
+    el <- getTableElement(results, "aucTable")
+    expectCells(rowFor(el[["data"]], "marker", "x"),
+                c(nPositive = 3, nNegative = 3, auc = expectedAuc, se = expectedSe), tolerance = 1e-12)
+    expect_match(footnoteText(el), "x: 2 rows with a missing value were left out.", fixed = TRUE)
+    expect_match(footnoteText(el), "Positive level: pos.", fixed = TRUE)
+  }
+
+  # Only one level left after the empty cells: the outcome error, not a message from pROC.
+  df <- data.frame(outcome = c("", "", "", "x", "x", "x"), m = 1:6, stringsAsFactors = FALSE)
+  results <- jaspTools::runAnalysis(analysisName, df, rocOptions("m", positiveLevel = "x"))
+  expectValidationError(results)
+  expect_identical(as.character(results[["results"]][["errorMessage"]]),
+                   "The outcome 'outcome' must have exactly two levels after rows with a missing outcome are removed. Levels found: x.")
+})
+
+test_that("Encoded column names: every label, footnote, plot label and error shows the decoded name", {
+  # JASP gives the analysis encoded column names (jaspColumn1, ...) and decodes them through
+  # .decodeColNamesLax, which jaspBase::decodeColNames finds by name. jaspTools encodes the names
+  # (encodeOptionsAndDataset) but provides no decoder, so this test supplies one that replaces each encoded name
+  # anywhere in a string, as JASP's does. Any text built without decodeColNames would keep "jaspColumn".
+  df <- data.frame(`out come` = factor(c(rep("pos", 6), rep("neg", 6)), levels = c("neg", "pos")),
+                   `my marker` = c(1, 2, 3, 9, 9, 9, 1, 1, 1, 1, 1, 1), `k k` = rep(3, 12), `w w` = c(Inf, NA, 1:10),
+                   check.names = FALSE)
+  options <- rocOptions(list("my marker", "k k", "w w"), outcome = "out come", positiveLevel = "pos")
+  options$outcome.types <- "nominal"
+  options$tests.types   <- list("scale", "scale", "scale")
+  options$comparisonTable   <- TRUE
+  options$coordinatesTable <- TRUE
+  options$rocPlot          <- TRUE
+  options$thresholdPlot    <- TRUE
+  encoded <- jaspTools:::encodeOptionsAndDataset(options, df)
+  map <- encoded$encodingMap
+  expect_setequal(map$original, c("out come", "my marker", "k k", "w w"))
+  expect_true(all(grepl("^jaspColumn[0-9]+$", map$encoded)))
+
+  decode <- function(x) {
+    for (i in order(-nchar(map$encoded)))
+      x <- gsub(map$encoded[i], map$original[i], x, fixed = TRUE)
+    x
+  }
+  # jaspTools may already have its own binding in globalenv: keep it and put it back afterwards.
+  hadDecoder <- exists(".decodeColNamesLax", envir = globalenv(), inherits = FALSE)
+  oldDecoder <- if (hadDecoder) get(".decodeColNamesLax", envir = globalenv(), inherits = FALSE)
+  assign(".decodeColNamesLax", decode, envir = globalenv())
+  on.exit({
+    if (hadDecoder)
+      assign(".decodeColNamesLax", oldDecoder, envir = globalenv())
+    else
+      rm(".decodeColNamesLax", envir = globalenv())
+  }, add = TRUE)
+
+  results <- jaspTools::runAnalysis(analysisName, encoded$dataset, encoded$options, encodedDataset = TRUE)
+  expectNoError(results)
+  # Footnotes point at rows by their row names, which are internal keys built from the encoded names and are
+  # never shown, so they are left out here.
+  shown <- unlist(results[["results"]])
+  shown <- shown[!grepl("\\.rows$", names(shown))]
+  text <- paste(shown, collapse = " ")
+  expect_false(grepl("jaspColumn", text, fixed = TRUE), label = "no encoded name in tables and footnotes")
+  for (name in c("my marker", "k k", "w w"))
+    expect_true(grepl(name, text, fixed = TRUE), label = paste(name, "appears"))
+  markers <- unique(vapply(getRows(results, "aucTable"), function(r) as.character(r$marker), ""))
+  expect_identical(markers, c("my marker", "k k", "w w"))
+
+  for (plot in c("rocPlot", "thresholdPlot")) {
+    p <- plotObject(results, plot)
+    labels <- c(levels(p$data$marker), unlist(p$labels))
+    expect_false(any(grepl("jaspColumn", labels, fixed = TRUE)), label = paste(plot, "labels"))
+    expect_true(any(grepl("my marker", labels, fixed = TRUE)), label = paste(plot, "names the marker"))
+    expect_true(any(grepl("k k", labels, fixed = TRUE)), label = paste(plot, "note names the marker with no curve"))
+  }
+
+  # The outcome error names the decoded outcome.
+  df3 <- data.frame(`out "x"` = factor(c("a", "b", "c", "a")), `m m` = 1:4, check.names = FALSE)
+  options3 <- rocOptions(list("m m"), outcome = 'out "x"', positiveLevel = "b")
+  options3$outcome.types <- "nominal"
+  options3$tests.types   <- list("scale")
+  encoded <- jaspTools:::encodeOptionsAndDataset(options3, df3)
+  map <- encoded$encodingMap
+  results <- jaspTools::runAnalysis(analysisName, encoded$dataset, encoded$options, encodedDataset = TRUE)
+  expectValidationError(results)
+  expect_identical(as.character(results[["results"]][["errorMessage"]]),
+                   "The outcome 'out \"x\"' must have exactly two levels after rows with a missing outcome are removed. Levels found: a, b, c.")
 })

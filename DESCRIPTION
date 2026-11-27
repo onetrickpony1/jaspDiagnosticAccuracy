@@ -1,10 +1,11 @@
 Package: jaspDiagnosticAccuracy
 Type: Package
 Title: Diagnostic Accuracy
-Version: 0.1.0
-Date: 2026-11-25
+Version: 0.1.1
+Date: 2026-11-27
 Author: onetrickpony1
 Maintainer: onetrickpony1 <311002920+onetrickpony1@users.noreply.github.com>
+Website: https://github.com/onetrickpony1/jaspDiagnosticAccuracy
 Description: ROC curves and diagnostic accuracy for JASP. Estimates the area
   under the ROC curve with confidence intervals, compares markers, and reports
   sensitivity, specificity, predictive values and likelihood ratios at a

@@ -6,7 +6,7 @@ Description
 	name		: "jaspDiagnosticAccuracy"
 	title		: qsTr("Diagnostic Accuracy")
 	description	: qsTr("ROC curves and diagnostic accuracy")
-	version		: "0.1.0"
+	version		: "0.1.1"
 	author		: "onetrickpony1"
 	maintainer	: "onetrickpony1 <311002920+onetrickpony1@users.noreply.github.com>"
 	website		: "https://github.com/onetrickpony1/jaspDiagnosticAccuracy"

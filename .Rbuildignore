@@ -7,3 +7,7 @@
 ^examples$
 ^AGENTS\.md$
 ^CONTRIBUTING\.md$
+^\.github$
+^\.editorconfig$
+^tests/testthat/Rplots\.pdf$
+^CHANGELOG\.md$

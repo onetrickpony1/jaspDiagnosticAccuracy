@@ -23,7 +23,7 @@ The R of the JASP 0.99.0 Flatpak (R 4.5.2) has both: pROC in the `jaspMetaAnalys
 flatpak run --filesystem=$PWD --command=Rscript org.jaspstats.JASP -e '.libPaths(c("/app/Modules/module_libs/jaspMetaAnalysis", "/app/Modules/module_libs/jaspMachineLearning", .libPaths())); source("dev/validation/reference.R")'
 ```
 
-The run on 2026-11-26 made 146 checks. All of them agreed, at a relative tolerance of 1e-12 unless stated.
+The run on 2026-11-27 made 1,189 checks. All of them agreed, at a relative tolerance of 1e-12 unless stated.
 
 ## Data sets (in `tests/testthat/`)
 
@@ -141,6 +141,29 @@ Coordinates for wfns (higher): thresholds -Inf, 1.5, 2.5, 3.5, 4.5, Inf; sensiti
 | s100b times 1e12 | pROC AUC and SE equal those of s100b |
 | One positive case (x = 4 positive; 1, 2, 3, 5 negative) | AUC 0.75; DeLong variance undefined (`var()` of one value is NA); pROC `var()` and `ci.auc()` also give NA |
 | Bootstrap CI, s100b, `set.seed(1)` then `ci.auc(boot.n = 2000, boot.stratified = TRUE)` | 0.6243 to 0.8269. Not pinned in the tests: the result depends on any random numbers drawn before the call. |
+
+### Random data (sections 12 and 13 of `reference.R`)
+
+Two seeds for each of n = 2, 3, 5, 20, 200, 2,000 and 20,000, with three kinds of marker: continuous, heavy ties (four values) and values rounded to one decimal. Both directions, and CI levels 0.5, 0.9 and 0.999 in turn. For each:
+
+| Check | Against |
+|---|---|
+| AUC | pROC `auc` |
+| DeLong SE and CI at the level | pROC `var` and `ci.auc` (pROC cuts the CI to [0, 1], `R/delong.R` lines 82 and 83) |
+| Paired difference, z, p and CI with a second marker | `roc.test(method = "delong", paired = TRUE)`: the difference at 1e-12, z, p and the CI at 1e-9. A pair whose z is not a finite number, or whose CI has zero width, is skipped. |
+| Sensitivity and specificity at every threshold | pROC `coords("all")` |
+| AUC (n up to 2,000) | ROCR |
+| Best thresholds for Youden and closest to (0, 1) | pROC `coords("best")`: every pROC threshold is among the exact ties, and any exact tie pROC leaves out is a near-tie within 1e-12 |
+
+For large n the hand DeLong and curve counts use sorted values and `findInterval` instead of an n by n matrix. Both are first checked against `delong.R` and `cutoffs.R` on smaller data. Closest to (0, 1) is compared exactly only while each squared count stays below 2^52 (n positive times n negative below 2^26). The near-tie example in `dev/interface.md` is checked as well: the exact ties are 1.5, 3.5 and 7.5, and pROC returns 3.5 and 7.5.
+
+The stratified bootstrap is checked with a hand version in base R: on each bootstrap sample the controls and then the cases are drawn with replacement, the AUC comes from ranks, and the interval from `quantile()` type 7. It equals `ci.auc(method = "bootstrap", boot.stratified = TRUE)` with the same seed, under both sample kinds ("Rejection", R's default, and "Rounding", which jaspBase uses), for n = 10, 200 and 2,000, both directions and levels 0.5 to 0.999.
+
+One large data set has 50,000 cases and 50,000 controls, so n positive times n negative (2.5 x 10^9) is above 2^31 - 1, the largest integer R stores. Its marker is rounded to two decimals, and a second marker adds noise to it. The AUC, the DeLong SE, the paired test, the sensitivity and specificity at every threshold and the best Youden threshold equal pROC's. The hand bootstrap (100 samples, seeds 11 and 12, sample kind "Rounding") equals pROC's `ci.auc`. The test "Large data" in `tests/testthat/test-rocCurve.R` runs the analysis on the same data.
+
+### Coordinates with a custom prevalence (section 11)
+
+PPV and NPV at every wfns threshold by Bayes' rule with p = 0.2 (`aSAH.wfns.coord<k>.prev0.2.*` in the CSV). At the sample prevalence the same rule equals pROC's `coords` ppv and npv.
 
 ## What could not be sourced
 

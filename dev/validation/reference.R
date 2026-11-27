@@ -286,6 +286,215 @@ tt <- coChoose(coAll(tieX, tieY, "higher"), "youden")
 cat("finite tie Youden thresholds:", tt, "\n"); stopifnot(identical(tt, c(1.5, 3.5)))
 doCut("finiteTie.youden", tieX, tieY, "higher", "youden")
 
+# ---------------------------------------------------------------- 11. coordinates with a custom prevalence (wfns, p = 0.2)
+# PPV and NPV by Bayes' rule in base R. At the sample prevalence the same rule must give pROC's ppv and npv,
+# which pROC computes as TP / (TP + FP) and TN / (TN + FN).
+rW <- roc(asah$outcome, asah$wfns, levels = c("Good", "Poor"), direction = "<", quiet = TRUE)
+pcW <- coords(rW, "all", ret = c("threshold", "ppv", "npv"), transpose = FALSE)
+pcW <- pcW[order(pcW$threshold), ]
+bayes <- function(se, sp, p) list(ppv = se * p / (se * p + (1 - sp) * (1 - p)), npv = sp * (1 - p) / (sp * (1 - p) + (1 - se) * p))
+bS <- bayes(tabW$sensitivity, tabW$specificity, pS)
+same(bS$ppv[is.finite(bS$ppv)], pcW$ppv[is.finite(bS$ppv)], "wfns coordinates PPV, Bayes at sample prevalence vs pROC coords ppv")
+same(bS$npv[is.finite(bS$npv)], pcW$npv[is.finite(bS$npv)], "wfns coordinates NPV, Bayes at sample prevalence vs pROC coords npv")
+b02 <- bayes(tabW$sensitivity, tabW$specificity, 0.2)
+for (i in seq_len(nrow(tabW))) {
+  put(sprintf("aSAH.wfns.coord%d.prev0.2.ppv", i), b02$ppv[i], "hand Bayes, p = 0.2 (NaN when se = 0 and sp = 1)")
+  put(sprintf("aSAH.wfns.coord%d.prev0.2.npv", i), b02$npv[i], "hand Bayes, p = 0.2 (NaN when se = 1 and sp = 0)")
+}
+
+# ---------------------------------------------------------------- 12. random data against pROC and ROCR
+# Several seeds, n from 2 to 20000, continuous and heavily tied markers, both directions, three CI levels.
+# Large n needs placement values and curve counts without an n x n matrix, so these use sorted values and
+# findInterval (base R). Both are first checked against delong.R and cutoffs.R on smaller data.
+dlComponentsSorted <- function(marker, isCase) {
+  y <- marker[isCase]; x <- marker[!isCase]
+  xs <- sort(x); ys <- sort(y)
+  V10 <- (findInterval(y, xs, left.open = TRUE) + 0.5 * (findInterval(y, xs) - findInterval(y, xs, left.open = TRUE))) / length(x)
+  V01 <- ((length(y) - findInterval(x, ys)) + 0.5 * (findInterval(x, ys) - findInterval(x, ys, left.open = TRUE))) / length(y)
+  list(V10 = V10, V01 = V01, m = length(y), n = length(x))
+}
+dlAucSorted <- function(marker, isCase, ciLevel) {
+  c1 <- dlComponentsSorted(marker, isCase)
+  auc <- mean(c1$V10); se <- sqrt(var(c1$V10) / c1$m + var(c1$V01) / c1$n); q <- qnorm(1 - (1 - ciLevel) / 2)
+  c(auc = auc, se = se, lower = auc - q * se, upper = auc + q * se)
+}
+dlPairedSorted <- function(m1, m2, isCase, ciLevel) {
+  a <- dlComponentsSorted(m1, isCase); b <- dlComponentsSorted(m2, isCase)
+  S <- cov(cbind(a$V10, b$V10)) / a$m + cov(cbind(a$V01, b$V01)) / a$n
+  d <- mean(a$V10) - mean(b$V10); se <- sqrt(S[1, 1] + S[2, 2] - 2 * S[1, 2]); q <- qnorm(1 - (1 - ciLevel) / 2)
+  z <- d / se
+  c(difference = d, lower = d - q * se, upper = d + q * se, z = z, p = 2 * pnorm(-abs(z)))
+}
+coAllSorted <- function(x, isCase, direction) {
+  th <- coThresholds(x)
+  cs <- sort(x[isCase]); ct <- sort(x[!isCase])
+  if (direction == "higher") {
+    tp <- length(cs) - findInterval(th, cs, left.open = TRUE); tn <- findInterval(th, ct, left.open = TRUE)
+  } else {
+    tp <- findInterval(th, cs); tn <- length(ct) - findInterval(th, ct)
+  }
+  data.frame(threshold = th, sensitivity = tp / length(cs), specificity = tn / length(ct), tp = tp, tn = tn)
+}
+# A marker that is higher on average for the cases. "rounded" rounds after the shift, so tied values are equal
+# doubles (0.2 + 0.4 and 0.6 would differ in the last bit, and pROC would then place a threshold on a value).
+randomMarker <- function(n, kind, y) {
+  switch(kind, continuous = rnorm(n) + 0.4 * y, ties = sample(1:4, n, replace = TRUE) + 0.4 * y,
+         rounded = round(rnorm(n) + 0.4 * y, 1))
+}
+randomOutcome <- function(n) {
+  y <- rbinom(n, 1, 0.35) == 1
+  y[1] <- TRUE; y[2] <- FALSE   # at least one of each
+  y
+}
+
+# The sorted versions against delong.R and cutoffs.R.
+for (s in 1:3) for (kind in c("continuous", "ties")) {
+  set.seed(100 + s); n <- 60; y <- randomOutcome(n); x <- randomMarker(n, kind, y); x2 <- x + rnorm(n)
+  same(dlAucSorted(x, y, 0.9), dlAuc(x, y, 0.9)[c("auc", "se", "lower", "upper")], paste("sorted DeLong vs delong.R, seed", s, kind))
+  same(dlPairedSorted(x, x2, y, 0.9), dlPaired(x, x2, y, 0.9)[c("difference", "lower", "upper", "z", "p")], paste("sorted paired DeLong vs delong.R, seed", s, kind))
+  for (d in c("higher", "lower"))
+    same(as.matrix(coAllSorted(x, y, d)[, 1:3]), as.matrix(coAll(x, y, d)), paste("sorted curve counts vs cutoffs.R, seed", s, kind, d))
+}
+
+sizes <- c(2, 3, 5, 20, 200, 2000, 20000)
+levelsCi <- c(0.5, 0.9, 0.999)
+nDiffYouden <- 0; nDiffTopleft <- 0
+for (n in sizes) for (kind in c("continuous", "ties", "rounded")) for (s in 1:2) {
+  set.seed(1000 * s + n)
+  y <- randomOutcome(n)
+  x <- randomMarker(n, kind, y)
+  x2 <- if (kind == "continuous") x + rnorm(n) else sample(1:6, n, replace = TRUE) + y
+  # Doubles: as integers, nPos * nNeg would overflow above 2^31 - 1.
+  nPos <- as.numeric(sum(y)); nNeg <- as.numeric(sum(!y))
+  for (d in c("higher", "lower")) {
+    tag <- sprintf("random n=%d %s seed %d %s", n, kind, s, d)
+    dirP <- if (d == "higher") "<" else ">"
+    sgn <- if (d == "higher") 1 else -1
+    r <- roc(y, x, levels = c(FALSE, TRUE), direction = dirP, quiet = TRUE)
+    level <- levelsCi[(s + match(kind, c("continuous", "ties", "rounded"))) %% 3 + 1]
+    h <- dlAucSorted(sgn * x, y, level)
+    same(h[["auc"]], auc(r), paste(tag, "AUC vs pROC"))
+    if (nPos >= 2 && nNeg >= 2) {
+      same(h[["se"]], sqrt(var(r)), paste(tag, "DeLong SE vs pROC var"))
+      # pROC cuts the DeLong interval to [0, 1] (R/delong.R, lines 82-83), so the hand interval is cut too.
+      same(pmin(pmax(h[c("lower", "upper")], 0), 1), as.numeric(ci.auc(r, conf.level = level, method = "delong"))[c(1, 3)],
+           paste(tag, "DeLong CI at", level, "vs pROC ci.auc"))
+      r2 <- roc(y, x2, levels = c(FALSE, TRUE), direction = dirP, quiet = TRUE)
+      hp <- dlPairedSorted(sgn * x, sgn * x2, y, level)
+      if (is.finite(hp[["z"]]) && hp[["lower"]] != hp[["upper"]]) {
+        tt <- roc.test(r, r2, method = "delong", paired = TRUE, conf.level = level)
+        same(c(hp[["z"]], hp[["p"]]), c(tt$statistic, tt$p.value), paste(tag, "paired z and p vs roc.test"), tol = 1e-9)
+        same(hp[c("lower", "upper")], tt$conf.int, paste(tag, "paired CI at", level, "vs roc.test"), tol = 1e-9)
+        same(hp[["difference"]], unname(tt$estimate[1] - tt$estimate[2]), paste(tag, "paired difference vs roc.test"))
+      }
+    }
+    tab <- coAllSorted(x, y, d)
+    pc <- coords(r, "all", ret = c("threshold", "sensitivity", "specificity"), transpose = FALSE)
+    pc <- pc[order(pc$threshold), ]
+    same(tab$threshold, pc$threshold, paste(tag, "coords all thresholds"))
+    same(tab$sensitivity, pc$sensitivity, paste(tag, "coords all sensitivities"))
+    same(tab$specificity, pc$specificity, paste(tag, "coords all specificities"))
+    if (n <= 2000) {
+      xx <- sgn * x
+      pred <- ROCR::prediction(xx, as.integer(y), label.ordering = c(0L, 1L))
+      same(ROCR::performance(pred, "auc")@y.values[[1]], h[["auc"]], paste(tag, "AUC vs ROCR"))
+    }
+    # Best thresholds. The hand choice compares exact whole numbers: Youden J * nPos * nNeg = tp nNeg + tn nPos
+    # - nPos nNeg, and the squared distance to (0, 1) times (nPos nNeg)^2 = (fn nNeg)^2 + (fp nPos)^2, exact in
+    # doubles while each square stays below 2^52. pROC compares floating-point proportions, so on a near-tie it
+    # can return fewer thresholds (dev/interface.md): every pROC threshold must be among the hand ones, and any
+    # hand threshold pROC leaves out must tie with the best to within 1e-12.
+    score <- tab$tp * nNeg + tab$tn * nPos
+    exactY <- tab$threshold[score == max(score)]
+    bY <- coords(r, "best", best.method = "youden", ret = "threshold", transpose = FALSE)$threshold
+    same(all(bY %in% exactY), TRUE, paste(tag, "pROC best Youden among the exact ties"))
+    j <- tab$sensitivity + tab$specificity
+    same(all(abs(j[tab$threshold %in% setdiff(exactY, bY)] - max(j)) < 1e-12), TRUE, paste(tag, "Youden thresholds pROC leaves out are near-ties"))
+    nDiffYouden <- nDiffYouden + length(setdiff(exactY, bY))
+    if (max(nPos * nNeg) < 2^26) {
+      dist <- ((nPos - tab$tp) * nNeg)^2 + ((nNeg - tab$tn) * nPos)^2
+      exactT <- tab$threshold[dist == min(dist)]
+      bT <- coords(r, "best", best.method = "closest.topleft", ret = "threshold", transpose = FALSE)$threshold
+      same(all(bT %in% exactT), TRUE, paste(tag, "pROC best closest.topleft among the exact ties"))
+      dd <- (1 - tab$sensitivity)^2 + (1 - tab$specificity)^2
+      same(all(abs(dd[tab$threshold %in% setdiff(exactT, bT)] - min(dd)) < 1e-12), TRUE, paste(tag, "closest.topleft thresholds pROC leaves out are near-ties"))
+      nDiffTopleft <- nDiffTopleft + length(setdiff(exactT, bT))
+    }
+  }
+}
+cat("Exact ties that pROC coords('best') leaves out on the random data: Youden", nDiffYouden, ", closest.topleft", nDiffTopleft, "\n")
+# The near-tie in dev/interface.md: Youden, direction "lower". TP + TN = 14 at 1.5, 3.5 and 7.5, an exact score of
+# 168 at each, but the floating-point J at 1.5 differs from the other two in the last bit, so pROC returns two.
+tieCases <- c(1, 3, 3, 5, 7, 1, 2, 6, 2, 7, 1, 6); tieControls <- c(4, 2, 8, 8, 5, 1, 2, 2, 7, 5, 5, 3)
+tieX <- c(tieCases, tieControls); tieIsCase <- rep(c(TRUE, FALSE), c(12, 12))
+tabT <- coAllSorted(tieX, tieIsCase, "lower")
+scoreT <- tabT$tp * 12 + tabT$tn * 12
+same(tabT$threshold[scoreT == max(scoreT)], c(1.5, 3.5, 7.5), "interface.md near-tie: exact Youden ties at 1.5, 3.5, 7.5")
+same(max(scoreT), 168, "interface.md near-tie: exact score 168")
+rT <- roc(tieIsCase, tieX, levels = c(FALSE, TRUE), direction = ">", quiet = TRUE)
+same(sort(coords(rT, "best", best.method = "youden", ret = "threshold", transpose = FALSE)$threshold), c(3.5, 7.5),
+     "interface.md near-tie: pROC coords best gives 3.5 and 7.5 only")
+
+# ---------------------------------------------------------------- 13. stratified bootstrap against pROC, with seeds
+# Hand bootstrap in base R: on each replicate draw the controls, then the cases, with replacement (the order of
+# pROC R/bootstrap.R, stratified.ci.auc), take the Mann-Whitney AUC from ranks (ties count one half), and use
+# quantile() type 7 at (1 - level) / 2, 0.5 and 1 - (1 - level) / 2. Checked under both sample kinds: R's default
+# "Rejection" and "Rounding", which jaspBase uses when it runs an analysis.
+handBoot <- function(cases, controls, nBoot, level, direction) {
+  aucs <- numeric(nBoot)
+  for (b in seq_len(nBoot)) {
+    ct <- sample(controls, replace = TRUE); cs <- sample(cases, replace = TRUE)
+    rk <- rank(c(cs, ct))
+    m <- as.numeric(length(cs)); k <- as.numeric(length(ct))   # doubles, so m * k cannot overflow
+    a <- (sum(rk[seq_along(cs)]) - m * (m + 1) / 2) / (m * k)
+    aucs[b] <- if (direction == "<") a else 1 - a
+  }
+  quantile(aucs, c((1 - level) / 2, 0.5, 1 - (1 - level) / 2), names = FALSE)
+}
+oldKind <- RNGkind()[3]
+for (kindRng in c("Rejection", "Rounding")) {
+  suppressWarnings(RNGkind(sample.kind = kindRng))
+  for (cfg in list(list(n = 10, kind = "ties", seed = 1, level = 0.9), list(n = 200, kind = "continuous", seed = 2, level = 0.95),
+                   list(n = 200, kind = "rounded", seed = 3, level = 0.5), list(n = 2000, kind = "continuous", seed = 4, level = 0.999))) {
+    set.seed(cfg$seed); y <- randomOutcome(cfg$n); x <- randomMarker(cfg$n, cfg$kind, y)
+    if (sum(y) < 2 || sum(!y) < 2) { y[3] <- TRUE; y[4] <- FALSE }
+    for (dirP in c("<", ">")) {
+      r <- roc(y, x, levels = c(FALSE, TRUE), direction = dirP, quiet = TRUE)
+      nBoot <- if (cfg$n >= 2000) 200 else 500
+      set.seed(cfg$seed + 10); pb <- as.numeric(ci.auc(r, method = "bootstrap", boot.n = nBoot, boot.stratified = TRUE, conf.level = cfg$level, progress = "none"))
+      set.seed(cfg$seed + 10); hb <- handBoot(x[y], x[!y], nBoot, cfg$level, dirP)
+      same(hb, pb, sprintf("bootstrap n=%d %s %s %s level %s vs pROC ci.auc stratified", cfg$n, cfg$kind, dirP, kindRng, cfg$level))
+    }
+  }
+}
+# A large case: 50,000 cases and 50,000 controls, so n positive times n negative (2.5e9) is above 2^31 - 1, the
+# largest integer R stores. The same data as the test "Large data" in tests/testthat/test-rocCurve.R.
+suppressWarnings(RNGkind(sample.kind = "Rounding"))
+set.seed(31); nBig <- 100000; yBig <- rep(c(FALSE, TRUE), each = nBig / 2)
+xBig <- round(rnorm(nBig) + 0.5 * yBig, 2); x2Big <- round(xBig + rnorm(nBig), 2)
+stopifnot(as.numeric(sum(yBig)) * sum(!yBig) > 2^31)
+rBig <- roc(yBig, xBig, levels = c(FALSE, TRUE), direction = "<", quiet = TRUE)
+r2Big <- roc(yBig, x2Big, levels = c(FALSE, TRUE), direction = "<", quiet = TRUE)
+hBig <- dlAucSorted(xBig, yBig, 0.95)
+same(hBig[["auc"]], auc(rBig), "large n=100000 (50000 x 50000) AUC vs pROC")
+same(hBig[["se"]], sqrt(var(rBig)), "large n=100000 DeLong SE vs pROC var")
+hpBig <- dlPairedSorted(xBig, x2Big, yBig, 0.95)
+ttBig <- roc.test(rBig, r2Big, method = "delong", paired = TRUE)
+same(c(hpBig[["z"]], hpBig[["p"]]), c(ttBig$statistic, ttBig$p.value), "large n=100000 paired z and p vs roc.test", tol = 1e-9)
+same(hpBig[c("lower", "upper")], ttBig$conf.int, "large n=100000 paired CI vs roc.test", tol = 1e-9)
+tabBig <- coAllSorted(xBig, yBig, "higher")
+pcBig <- coords(rBig, "all", ret = c("threshold", "sensitivity", "specificity"), transpose = FALSE)
+same(as.matrix(tabBig[, 1:3]), as.matrix(pcBig[order(pcBig$threshold), ]), "large n=100000 coords all vs pROC")
+scoreBig <- tabBig$tp * 50000 + tabBig$tn * 50000
+same(tabBig$threshold[scoreBig == max(scoreBig)], coords(rBig, "best", best.method = "youden", ret = "threshold", transpose = FALSE)$threshold,
+     "large n=100000 best Youden vs pROC coords best")
+for (seedBig in c(11, 12)) {
+  set.seed(seedBig); pbBig <- as.numeric(ci.auc(rBig, method = "bootstrap", boot.n = 100, boot.stratified = TRUE))
+  set.seed(seedBig); hbBig <- handBoot(xBig[yBig], xBig[!yBig], 100, 0.95, "<")
+  same(hbBig, pbBig, sprintf("large n=100000 bootstrap seed %d Rounding vs pROC ci.auc stratified", seedBig))
+}
+suppressWarnings(RNGkind(sample.kind = oldKind))
+
 write.csv(ref, file.path(here, "reference-values.csv"), row.names = FALSE)
 cat("wrote", nrow(ref), "values\n")
 

@@ -1,13 +1,12 @@
 # Smoke tests: the analysis runs without an error. Reference values live in other test files.
 
+# The defaults come from the form (jaspTools reads them from inst/qml/RocCurve.qml), so a new option gets its
+# default here without a change to this file.
 .rocSmokeOptions <- function(...) {
-  options <- list(
-    outcome = "outcome", positiveLevel = "Poor", tests = list("s100b", "ndka", "wfns"),
-    direction = "higher", aucCiMethod = "delong", bootstrapReplicates = 2000, setSeed = FALSE, seed = 1,
-    ciLevel = 0.95, cutoffCriterion = "youden", fixedSensitivityValue = 0.9, fixedSpecificityValue = 0.9,
-    thresholdValue = 0, prevalence = "sample", prevalenceValue = 0.1, compareMarkers = FALSE,
-    coordinatesTable = FALSE, cutoffTable = FALSE, rocPlot = FALSE, thresholdPlot = FALSE
-  )
+  options <- jaspTools::analysisOptions("rocCurve")
+  options$outcome       <- "outcome"
+  options$positiveLevel <- "Poor"
+  options$tests         <- list("s100b", "ndka", "wfns")
   changes <- list(...)
   options[names(changes)] <- changes
   options
@@ -26,9 +25,9 @@ test_that("ROC Curve runs with the default options", {
 })
 
 test_that("ROC Curve runs with every table and plot turned on", {
-  options <- .rocSmokeOptions(direction = "lower", aucCiMethod = "bootstrap", bootstrapReplicates = 200,
+  options <- .rocSmokeOptions(direction = "lower", aucCiMethod = "bootstrap", bootstrapSamples = 200,
                               setSeed = TRUE, cutoffCriterion = "closestTopLeft", prevalence = "custom",
-                              compareMarkers = TRUE, coordinatesTable = TRUE, cutoffTable = TRUE,
+                              comparisonTable = TRUE, coordinatesTable = TRUE, cutoffTable = TRUE,
                               rocPlot = TRUE, thresholdPlot = TRUE)
   results <- jaspTools::runAnalysis("rocCurve", .rocSmokeData(), options, quiet = TRUE)
   expect_identical(results[["status"]], "complete")

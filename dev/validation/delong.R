@@ -48,7 +48,7 @@ dlPaired <- function(m1, m2, isCase, ciLevel = 0.95) {
 #   Q1 = sum(nNx * (nAgt^2 + nAgt nAx + 1/3 nAx^2)) / (nN nA^2)
 #   SE = sqrt((W(1-W) + (nA-1)(Q1-W^2) + (nN-1)(Q2-W^2)) / (nA nN))
 hmTable2 <- function(nNx, nAx) {
-  nN <- sum(nNx); nA <- sum(nAx)
+  nN <- as.numeric(sum(nNx)); nA <- as.numeric(sum(nAx))   # doubles, so nN * nA cannot overflow
   nAgt <- nA - cumsum(nAx); nNlt <- cumsum(nNx) - nNx
   W  <- sum(nNx * nAgt + 0.5 * nNx * nAx) / (nN * nA)
   Q2 <- sum(nAx * (nNlt^2 + nNlt * nNx + nNx^2 / 3)) / (nA * nN^2)

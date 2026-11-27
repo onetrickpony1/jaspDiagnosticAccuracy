@@ -15,7 +15,7 @@ This file fixes the option names, the statistics and the output names. The R cod
 | `tests` | one or more variables (scale or ordinal); a variable listed twice is used once | none |
 | `direction` | `"higher"` / `"lower"` | `"higher"` |
 | `aucCiMethod` | `"delong"` / `"bootstrap"` | `"delong"` |
-| `bootstrapReplicates` | integer 100 to 100000 | 2000 |
+| `bootstrapSamples` | integer 100 to 100000 | 2000 |
 | `setSeed`, `seed` | JASP's standard seed control | `FALSE`, 1 |
 | `ciLevel` | 0 < x < 1 | 0.95 |
 | `cutoffTable` | logical | `FALSE` |
@@ -25,10 +25,12 @@ This file fixes the option names, the statistics and the output names. The R cod
 | `thresholdValue` | any number | 0 |
 | `prevalence` | `"sample"` / `"custom"` | `"sample"` |
 | `prevalenceValue` | 0 < x < 1 | 0.1 |
-| `compareMarkers` | logical (enabled with 2 or more tests) | `FALSE` |
+| `comparisonTable` | logical (enabled with 2 or more tests) | `FALSE` |
 | `coordinatesTable` | logical | `FALSE` |
 | `rocPlot` | logical | `FALSE` |
 | `thresholdPlot` | logical | `FALSE` |
+
+Renamed options: version 0.1.1 renamed `bootstrapReplicates` to `bootstrapSamples` (the standard name in the JASP option-name guide) and `compareMarkers` to `comparisonTable` (a noun, like `cutoffTable` and `coordinatesTable`). `inst/Upgrades.qml` renames them in files saved with 0.1.0. Any later rename needs a new entry there and a higher version in DESCRIPTION.
 
 ## Statistics (what each number means)
 
@@ -38,7 +40,7 @@ This file fixes the option names, the statistics and the output names. The R cod
 - Infinite values (Inf or -Inf) in a marker are treated as missing for that marker, with a footnote in the AUC table giving the count.
 - Missing values: AUC and cut-off tables use, per marker, the rows where the outcome and that marker are both present. The comparison table uses rows where the outcome and every marker are present.
 - AUC SE, z and p: always the DeLong SE. z = (AUC - 0.5) / SE, p two-sided normal.
-- AUC CI: `ci.auc` with DeLong, or bootstrap at `ciLevel`. The bootstrap is the module's own code with the same random draws and quantile rule as `ci.auc(method = "bootstrap", boot.n = bootstrapReplicates, boot.stratified = TRUE)`, but without rebuilding an ROC curve per replicate. Its AUCs and interval agree with pROC's to rounding (within 1e-12), not bit for bit.
+- AUC CI: DeLong or bootstrap, at `ciLevel`. The ROC curves, the AUC and the DeLong placement values come from the R package pROC; the DeLong standard error, interval and test use pROC's formulas. The bootstrap is the module's own code with the same random draws and quantile rule as `ci.auc(method = "bootstrap", boot.n = bootstrapSamples, boot.stratified = TRUE)`, but without rebuilding an ROC curve per bootstrap sample. Its AUCs and interval agree with pROC's to rounding (within 1e-12), not bit for bit.
 - Thresholds: pROC's own thresholds (midpoints between neighbouring observed values, plus -Inf and Inf).
 - Cut-off criteria:
   - `youden`: maximise sensitivity + specificity - 1.
@@ -60,8 +62,9 @@ This file fixes the option names, the statistics and the output names. The R cod
 
 - `aucTable`: `marker`, `nPositive`, `nNegative`, `auc`, `se`, `lower`, `upper`, `z`, `p`.
 - `cutoffTable`: `marker`, `criterion`, `threshold`, `sensitivity`, `sensitivityLower`, `sensitivityUpper`, `specificity`, `specificityLower`, `specificityUpper`, `ppv`, `npv`, `lrPositive`, `lrNegative`, `accuracy`, `youden`.
-- `comparisonTable` (when `compareMarkers`): `marker1`, `marker2`, `n`, `difference`, `lower`, `upper`, `z`, `p`.
+- `comparisonTable` (when the `comparisonTable` option is on): `marker1`, `marker2`, `n`, `difference`, `lower`, `upper`, `z`, `p`.
 - `coordinatesTable` (when on): `marker`, `threshold`, `sensitivity`, `specificity`, `ppv`, `npv`.
 - `rocPlot`, `thresholdPlot`.
-- Errors (whole analysis): outcome without exactly 2 levels after removing missing values (message names the levels found); `positiveLevel` not among the levels present.
+- Errors (whole analysis): outcome without exactly 2 levels after removing missing values (message names the levels found); `positiveLevel` not among the levels present; an option outside its range in the table above, checked only when the output uses it (`ciLevel` always; `bootstrapSamples` under the bootstrap; `fixedSensitivityValue`, `fixedSpecificityValue` and `thresholdValue` when `cutoffTable` is on with that criterion; `prevalenceValue` when `prevalence` is `"custom"` and `cutoffTable` or `coordinatesTable` is on). The message names the field as the form shows it.
+- Missing outcome: an empty cell (the empty string) counts as missing, as in JASP.
 - Per-marker problems (constant marker, no cases in one class): that marker's rows show empty cells with a footnote, the other markers still run.
