@@ -1510,6 +1510,57 @@ test_that("ROC plot: tied cut-offs each get a circle", {
   expect_equal(unname(as.matrix(got)), rbind(c(0, 0.5), c(0.5, 1)))
 })
 
+# The rightmost column with ink in the top quarter (the legend) of a plot drawn the way JASP draws it: jaspBase's
+# decodeplot builds it on a png() device and writeImageJaspResults draws it on a ragg device (300 ppi), here
+# ragg's capture device. extra adds that many points of right margin and plot width, so the panel and legend
+# stay where they are and only the room at the right grows.
+legendInkRight <- function(p, width, height, extra = 0) {
+  if (extra > 0) {
+    right <- p$theme$plot.margin[2]
+    testthat::expect_equal(grid::unitType(right), "points")
+    p <- p + ggplot2::theme(plot.margin = ggplot2::margin(r = as.numeric(right) + extra))
+  }
+  g <- jaspBase:::decodeplot(p)
+  ppi <- 300
+  cap <- ragg::agg_capture(width = (width + extra) * ppi / 96, height = height * ppi / 96, res = 72 * ppi / 96)
+  on.exit(grDevices::dev.off())
+  grid::grid.draw(g)
+  img <- cap(native = FALSE)
+  top <- img[seq_len(nrow(img) %/% 4), , drop = FALSE]
+  rgb <- grDevices::col2rgb(top, alpha = TRUE)
+  ink <- matrix(rgb["alpha", ] > 0 & colSums(rgb[1:3, , drop = FALSE]) < 600, nrow = nrow(top))
+  max(which(colSums(ink) > 0))
+}
+
+test_that("ROC plot: the legend shows marker names in full, and the plot grows for long names", {
+  testthat::skip_if_not_installed("ragg")
+  # Names of 1, 7, 15 and 30 characters, and names with letters outside ASCII. Each plot is also drawn with 200
+  # points more room at the right: if nothing is cut off, the legend's ink ends at the same column.
+  df0 <- asahData()
+  nameSets <- list(c("A", "B"), c("markerA", "markerB"), c("serum_ferritin1", "serum_ferritin2"),
+                   c("a_very_long_marker_name_here_1", "a_very_long_marker_name_here_2", "a_very_long_marker_name_here_3"),
+                   c("Ferritinkonzentration \u00e4\u00f6\u00fc\u00df \u00e9", "\u0412\u0438\u0442\u0430\u043c\u0438\u043d D"))
+  widths <- numeric(0)
+  for (names in nameSets) {
+    df <- data.frame(outcome = df0$outcome)
+    for (i in seq_along(names)) df[[names[i]]] <- df0[[c("s100b", "ndka", "wfns")[i]]]
+    options <- rocOptions(names)
+    options$rocPlot <- TRUE
+    results <- jaspTools::runAnalysis(analysisName, df, options)
+    expectNoError(results)
+    el <- findElement(results[["results"]], "rocPlot")
+    p <- plotObject(results, "rocPlot")
+    label <- paste(names, collapse = " ")
+    # Up to 4 pixels (about 1 point) apart: the wider device rounds to whole pixels differently. A cut-off letter
+    # is about 30 pixels.
+    expect_gte(legendInkRight(p, el$width, el$height), legendInkRight(p, el$width, el$height, extra = 200) - 4,
+               label = paste(label, "legend ink ends at"))
+    widths[label] <- el$width
+  }
+  expect_equal(unname(widths[1:2]), c(520, 520))
+  expect_true(all(diff(widths[2:4]) > 0), label = "the plot grows with the name length")
+})
+
 test_that("ROC plot chance line runs from (0, 0) to (1, 1) only", {
   options <- rocOptions("s100b")
   options$rocPlot <- TRUE

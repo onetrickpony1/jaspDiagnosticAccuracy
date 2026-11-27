@@ -11,3 +11,4 @@
 ^\.editorconfig$
 ^tests/testthat/Rplots\.pdf$
 ^CHANGELOG\.md$
+^screenshots$

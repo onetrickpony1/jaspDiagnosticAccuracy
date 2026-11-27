@@ -2,10 +2,10 @@ context("ROC Curve: upgrades of saved files")
 
 # inst/Upgrades.qml renames options of older versions when JASP opens a saved file. JASP applies it (jasp-desktop
 # QMLComponents/modules/upgrader); these tests cannot run that code, so they read the ChangeRename entries the
-# same way and apply them to the options saved in examples/rocCurve-aSAH.jasp (saved with version 0.1.0).
+# same way and apply them to the options saved in upgrade-0.1.0-aSAH.jasp (the aSAH example as saved with version 0.1.0).
 
 upgradesFile <- function() testthat::test_path("..", "..", "inst", "Upgrades.qml")
-exampleFile  <- function() testthat::test_path("..", "..", "examples", "rocCurve-aSAH.jasp")
+exampleFile  <- function() testthat::test_path("upgrade-0.1.0-aSAH.jasp")
 
 readUpgrade <- function() {
   qml <- paste(readLines(upgradesFile(), warn = FALSE), collapse = "\n")

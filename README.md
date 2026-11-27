@@ -22,6 +22,42 @@ The analysis answers questions such as:
 - Which cut-off should I use, and how good is the test at that cut-off? The cut-off table gives sensitivity, specificity, predictive values and likelihood ratios.
 - Is one marker better than another on the same cases? The paired comparison tests the difference between two AUCs.
 
+## Screenshots
+
+The input form and the default output, the AUC table (example `rocCurve-aSAH.jasp`):
+
+<img src='screenshots/01-overview.png' alt='The ROC Curve form beside the AUC table for s100b and ndka' width='100%'/>
+
+<table>
+<tr>
+<td width='50%'><img src='screenshots/02-roc-plot.png' alt='ROC curves of s100b and ndka with the Youden cut-offs marked'/><br/><sub>ROC curves, with the chosen cut-off of each marker circled.</sub></td>
+<td width='50%'><img src='screenshots/08-screening-threshold-plot.png' alt='Sensitivity and specificity by threshold for two simulated markers'/><br/><sub>Sensitivity and specificity by threshold (simulated data).</sub></td>
+</tr>
+</table>
+
+The cut-off table at the Youden index, with confidence intervals, predictive values and likelihood ratios:
+
+<img src='screenshots/03-cutoff-table-youden.png' alt='Cut-off table for s100b and ndka at the Youden index' width='100%'/>
+
+The paired comparison of two AUCs (DeLong's test):
+
+<img src='screenshots/04-paired-comparison.png' alt='Paired comparison of the AUCs of s100b and ndka'/>
+
+<details>
+<summary>More: an ordinal rating, and a simulated screening study</summary>
+
+Radiologists' ratings of 109 CT images, 1 to 5 (Hanley and McNeil, 1982). The AUC, 0.893, is the value in the paper:
+
+<img src='screenshots/05-hanley-mcneil-ordinal.png' alt='AUC and cut-off tables for the CT ratings' width='100%'/>
+
+A simulated screening study of 1,000 people, 100 with the condition, and two markers:
+
+<img src='screenshots/06-screening-tables.png' alt='AUC, cut-off and comparison tables for the simulated markers' width='100%'/>
+
+<img src='screenshots/07-screening-roc-plot.png' alt='ROC curves of the two simulated markers'/>
+
+</details>
+
 ## Analysis: ROC Curve
 
 ### Input
@@ -103,9 +139,15 @@ jaspBase and jaspGraphs come from GitHub. The tests did not need a GitHub token.
 
 On Windows (from an early trial), after each restart of JASP, choose **Install Developer Module** again. JASP keeps the path and the module name.
 
-## Example
+## Examples
 
-`examples/rocCurve-aSAH.jasp` holds the `aSAH` data from pROC (113 patients with an aneurysmal subarachnoid haemorrhage) with one ROC Curve analysis. The outcome is `outcome` with Poor as the positive level, and the markers are s100b, ndka and wfns. The cut-off table (Youden index), the paired comparison and the ROC plot are switched on. The file was saved with version 0.1.0, which used two option names that 0.1.1 renamed; `inst/Upgrades.qml` gives JASP the new names. Open it in JASP with the module loaded. The file holds saved results, which show even if the module did not load. To check that the module runs, change an option, for example the confidence level, and see that the tables update.
+The folder `examples/` has three `.jasp` files. Each one holds its data and a ready-made ROC Curve analysis. They are also on the [releases page](https://github.com/onetrickpony1/jaspDiagnosticAccuracy/releases). Open one in JASP with the module installed. The files hold saved results, which show even if the module did not load; to check that the module runs, change an option, for example the confidence level, and see that the tables update.
+
+| File | Data | What it shows |
+|---|---|---|
+| `rocCurve-aSAH.jasp` | `aSAH` from pROC: 113 patients with an aneurysmal subarachnoid haemorrhage (Turck et al., 2010). Outcome `outcome`, positive level Poor. | Two biomarkers, s100b and ndka: the AUC table, the cut-off table (Youden index), the paired comparison and the ROC plot. |
+| `rocCurve-hanleyMcNeil1982.jasp` | Ratings 1 to 5 of 109 CT images, from Table I of Hanley and McNeil (1982). Outcome `status`, positive level abnormal. | An ordinal rating: the AUC (0.893, as in the paper), the cut-off table and the ROC plot. JASP's default positive level here is normal; the example sets it to abnormal. |
+| `rocCurve-screening-simulated.jasp` | **Simulated** data: 1,000 people, 100 with the condition, two markers. Made by `dev/examples/simulate-screening.py` (fixed seed). They describe no real people. | A strong and a weak marker: the AUC table, the cut-off table, the paired comparison, the ROC plot and the sensitivity and specificity by threshold plot. |
 
 ## Validation
 
@@ -141,6 +183,7 @@ The Hanley & McNeil standard error (0.032) uses their own formula, so the module
 - DeLong, E. R., DeLong, D. M., & Clarke-Pearson, D. L. (1988). Comparing the areas under two or more correlated receiver operating characteristic curves: A nonparametric approach. *Biometrics, 44*(3), 837-845. https://doi.org/10.2307/2531595
 - Hanley, J. A., & McNeil, B. J. (1982). The meaning and use of the area under a receiver operating characteristic (ROC) curve. *Radiology, 143*(1), 29-36. https://doi.org/10.1148/radiology.143.1.7063747
 - Robin, X., Turck, N., Hainard, A., Tiberti, N., Lisacek, F., Sanchez, J.-C., & Müller, M. (2011). pROC: An open-source package for R and S+ to analyze and compare ROC curves. *BMC Bioinformatics, 12*, 77. https://doi.org/10.1186/1471-2105-12-77
+- Turck, N., Vutskits, L., Sanchez-Pena, P., Robin, X., Hainard, A., Gex-Fabry, M., Fouda, C., Bassem, H., Mueller, M., Lisacek, F., Puybasset, L., & Sanchez, J.-C. (2010). A multiparameter panel method for outcome prediction following aneurysmal subarachnoid hemorrhage. *Intensive Care Medicine, 36*(1), 107-115. https://doi.org/10.1007/s00134-009-1641-y
 - Youden, W. J. (1950). Index for rating diagnostic tests. *Cancer, 3*(1), 32-35. https://doi.org/10.1002/1097-0142(1950)3:1<32::AID-CNCR2820030106>3.0.CO;2-3
 
 ## Licence

@@ -4,6 +4,8 @@
 
 ## 0.1.1 - 2026-11-27
 
+- Three example files in `examples/`: the aSAH biomarkers, the CT ratings of Hanley and McNeil (1982), and a simulated screening study. The aSAH example is saved again with this version.
+- Screenshots in the README.
 - Installable module files (`.JASPModule`) for Linux (Flatpak), Windows and macOS (Apple silicon), on the releases page. The README describes how to install them.
 - Clear error messages when an option is outside its range (confidence level, number of bootstrap samples, fixed sensitivity or specificity, threshold, custom prevalence), instead of a crash or a missing row.
 - Empty outcome cells count as missing, as elsewhere in JASP.
@@ -21,6 +23,7 @@
 - The bootstrap interval is now computed for large data sets. In 0.1.0 it was empty, with an R error message, once the number of cases times the number of controls passed 2,147,483,647 (for example 46,341 of each).
 - When the DeLong standard error cannot be computed for a marker that has two or more cases in each class, the AUC table gives a footnote that says so.
 - A new module icon, drawn in the style of the icons of JASP's own modules: an ROC curve above the chance diagonal, with a cut-off point.
+- The legend of the ROC plot no longer cuts off the end of marker names (before, a name such as "markerA" lost its last letter). The plot now has room at the right of the legend, and grows wider for names longer than 7 characters, so the curves keep their size.
 
 ## 0.1.0 - 2026-11-26
 

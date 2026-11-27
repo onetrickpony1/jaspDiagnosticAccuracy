@@ -81,10 +81,32 @@
     jaspGraphs::scale_y_continuous(name = gettext("Sensitivity"), breaks = breaks, limits = c(0, 1)) +
     jaspGraphs::geom_rangeframe() +
     jaspGraphs::themeJaspRaw(legend.position = if (length(labels) > 1) "right" else "none")
+  if (length(labels) > 1) {
+    room <- .rocLegendRoom(c(labels, gettext("Marker")))
+    plot$width <- room$width
+    p <- p + ggplot2::theme(plot.margin = ggplot2::margin(r = room$margin))
+  }
   if (length(notes) > 0)
     p <- p + .rocPlotNote(notes)
 
   plot$plotObject <- p
+}
+
+# Room for the legend at the right of the ROC plot, for the legend title and labels in texts. JASP lays a plot out
+# before it draws it: jaspBase's decodeplot builds the ggplot on a png() device, and writeImageJaspResults then draws
+# it on a ragg device, whose text is wider (about 5% in the Linux Flatpak). A legend at the right edge is then cut off
+# at the right. A right margin of 15% of the longest text, plus 6 points, takes up that difference. The plot also
+# grows by the extra width of a text longer than 7 characters, so the panel keeps the size it has with short names.
+# One plot pixel is one point (writeImageJaspResults draws width * ppi / 96 pixels at 72 * ppi / 96 per inch). A
+# character is taken as 0.62 of the font size wide, about the mean of DejaVu Sans, the plot font in the Linux Flatpak.
+# nchar(type = "width") counts wide characters (as in Chinese) twice.
+# Returns list(width, margin): the plot width in pixels and the right margin in points.
+.rocLegendRoom <- function(texts) {
+  charWidth <- 0.62 * jaspGraphs::getGraphOption("fontsize")
+  textWidth <- charWidth * max(7, nchar(texts, type = "width"), na.rm = TRUE)
+  margin    <- ceiling(0.15 * textWidth) + 6
+  extra     <- ceiling(1.15 * (textWidth - 7 * charWidth))
+  list(width = 520 + extra, margin = margin)
 }
 
 # A number as typed: up to 15 significant digits, without trailing zeros (1234.5678 stays 1234.5678).
