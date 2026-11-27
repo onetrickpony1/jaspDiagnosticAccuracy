@@ -58,6 +58,10 @@ A simulated screening study of 1,000 people, 100 with the condition, and two mar
 
 </details>
 
+The top of the help page, which the (i) button of the analysis opens:
+
+<img src='screenshots/09-help.png' alt='The top of the help page of ROC Curve, with the introduction and the assumptions' width='50%'/>
+
 ## Analysis: ROC Curve
 
 ### Input
@@ -86,7 +90,7 @@ With the default options the output is the AUC table only. The other tables and 
 - **ROC Curve** plot: all markers in one plot, with the chance diagonal. When the cut-off table is on, circles mark the chosen cut-offs, one for each tied cut-off.
 - **Sensitivity and Specificity by Threshold** plot.
 
-Footnotes give the positive level and the direction (AUC table), the classification rule (cut-off and coordinates tables) and the number of rows left out (AUC and comparison tables).
+Footnotes are few. The AUC table gives the positive level and the direction, and the number of bootstrap samples under the bootstrap. The comparison table names the test. A custom prevalence gets a footnote in the cut-off and coordinates tables. Other footnotes appear only when they apply, for example when rows were left out, a marker has no curve or a cell is undefined. The plots have no text inside the image; a marker without a curve is left out of them. The help page (the (i) button in JASP) explains the methods, the classification rule and every column.
 
 ## R Packages
 
@@ -103,7 +107,7 @@ The module is not in JASP's Module Library. There are two ways to install it.
 
 ### From a release file
 
-The [releases page](https://github.com/onetrickpony1/jaspDiagnosticAccuracy/releases) has a `.JASPModule` file for Linux (Flatpak, x86-64), Windows (x86-64) and macOS (Apple silicon). Download the file for your system. In JASP, click the **+** icon (top right), choose **Install Local Module** and pick the file. A **Diagnostic Accuracy** button appears in the ribbon. The Linux file was tested in the JASP 0.99.0 Flatpak; the Windows and macOS files have not been tested in JASP.
+The [releases page](https://github.com/onetrickpony1/jaspDiagnosticAccuracy/releases) has a `.JASPModule` file for Linux (Flatpak, x86-64), Windows (x86-64) and macOS (Apple silicon). Download the file for your system. In JASP 0.99.0 the **Install Local Module** item shows only in Developer mode, so first open Menu (☰), Preferences, Advanced, and tick **Developer mode**. Then click the **+** icon (top right), choose **Install Local Module** and pick the file. A **Diagnostic Accuracy** button appears in the ribbon. The Linux file was tested in the JASP 0.99.0 Flatpak; the Windows and macOS files have not been tested in JASP.
 
 ### As a development module
 

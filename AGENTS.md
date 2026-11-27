@@ -5,7 +5,8 @@ A community JASP module for ROC curves and diagnostic accuracy. It has one analy
 ## Layout
 
 - `R/`: the analysis code. `rocCurve.R` has the entry function, the option checks, the data preparation, the flow and the state that keeps the bootstrap AUCs (`.rocBootstrapState`); `rocCurve-computations.R` the fits, counts, cut-offs and the bootstrap draws; `rocCurve-tables.R` the tables; `rocCurve-threshold-digits.R` the significant digits of the thresholds; `rocCurve-plots.R` the plots.
-- `inst/qml/`: the input form (`RocCurve.qml`). Its `info` texts are the help: JASP builds the help page from them (the Form's `info`, each control's `info`, and the Form's `infoBottom` for the missing values, the output, the references and the R packages). There is no `inst/help/` file; one would replace the built page.
+- `inst/qml/`: the input form (`RocCurve.qml`). Each control's `info` text is its tooltip. The Form's own `info` is not a tooltip: JASP uses it only as the opening text of the help page it builds from the `info` texts. The (i) button shows that built page only when `inst/help/rocCurve.md` is missing or when "Generate markdown files for help" is on in JASP's advanced preferences.
+- `inst/help/rocCurve.md`: the help page, hand-written in the format of JASP's own modules. JASP shows it for the (i) button. It is named after the analysis function (`func: "rocCurve"` in `inst/Description.qml`).
 - `inst/Upgrades.qml`: renames options of older versions in saved files.
 - `tests/testthat/`: the unit tests and their data sets.
 - `dev/validation/`: reference values worked out without the module's code, and the script that checks them against other sources.
@@ -39,6 +40,8 @@ It stops on any disagreement. It rewrites `dev/validation/reference-values.csv` 
 - Progressive disclosure: by default the analysis shows only the AUC table. Everything else is opt-in.
 - Tests check against values computed independently (`dev/validation`), never against the module's own output.
 - Every table, footnote and error message uses the decoded column names.
+- Few notes, as in JASP's own modules: a footnote only for the positive level and direction, the paired test, a non-default choice or a problem that applies. Explanations go on the help page. Plots carry no text inside the image. `dev/interface.md` ("Footnotes and plot text") lists them.
+- Keep the help page and the `info` tooltips in step: a change to an option, a default or an output changes both.
 - User-visible changes go in `CHANGELOG.md` under "## Unreleased".
 - Writing: British English, no em dashes, short plain sentences.
 - Commit messages are one plain line with no trailers.

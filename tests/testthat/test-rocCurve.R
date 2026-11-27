@@ -32,18 +32,64 @@ test_that("AUC table with lower values indicating positive gives 1 - AUC and the
     expectCells(rowFor(rows, "marker", m), refAuc[[paste0(m, ".lower")]], label = m)
 })
 
-test_that("AUC table footnotes name the direction and the CI method", {
-  # ASSUMPTION: the footnote words. dev/interface.md says a footnote names the direction and the CI method;
-  # the test only looks for the words "higher"/"lower" and "DeLong".
+test_that("Default AUC table: one footnote, the positive level and the direction", {
+  # dev/interface.md, "Footnotes": with the default options and complete data the AUC table has only this
+  # note. The DeLong interval and the test of AUC = 0.5 are explained in the help, not in a note.
   options <- rocOptions("s100b")
+  options$cutoffTable <- FALSE
   results <- jaspTools::runAnalysis(analysisName, asahData(), options)
-  fn <- footnoteText(getTableElement(results, "aucTable"))
-  expect_match(fn, "higher", ignore.case = TRUE)
-  expect_match(fn, "DeLong", ignore.case = TRUE)
+  expect_identical(footnoteText(getTableElement(results, "aucTable")),
+                   "Positive level: Poor. Higher marker values indicate positive.")
 
   options$direction <- "lower"
   results <- jaspTools::runAnalysis(analysisName, asahData(), options)
-  expect_match(footnoteText(getTableElement(results, "aucTable")), "lower", ignore.case = TRUE)
+  expect_identical(footnoteText(getTableElement(results, "aucTable")),
+                   "Positive level: Poor. Lower marker values indicate positive.")
+})
+
+test_that("Ties between the classes get no footnote", {
+  # aSAH s100b has values shared by cases and controls; the help says ties count as one half.
+  results <- jaspTools::runAnalysis(analysisName, asahData(), rocOptions(c("s100b", "wfns")))
+  fn <- footnoteText(getTableElement(results, "aucTable"))
+  expect_false(grepl("tied", fn, fixed = TRUE))
+  expect_false(grepl("DeLong", fn, fixed = TRUE))
+  expect_false(grepl("Wald", fn, fixed = TRUE))
+})
+
+test_that("Default cut-off and coordinates tables: only notes that apply; a custom prevalence gets one in each", {
+  # The classification rule, the Clopper-Pearson intervals, the sample prevalence and pROC's thresholds are
+  # explained in the help. s100b and ndka at the Youden index give one row each and no undefined cell.
+  options <- rocOptions(c("s100b", "ndka"))
+  options$coordinatesTable <- TRUE
+  results <- jaspTools::runAnalysis(analysisName, asahData(), options)
+  expectNoError(results)
+  expect_identical(footnoteText(getTableElement(results, "cutoffTable")), "")
+  # The coordinates table runs from -Inf to Inf. At one end every case is positive (NPV is 0 / 0), at the other
+  # none is (PPV is 0 / 0), so its note on undefined cells applies.
+  undefinedNote <- "Empty PPV or NPV cells are undefined (a division by zero)."
+  expect_identical(footnoteText(getTableElement(results, "coordinatesTable")), undefinedNote)
+
+  options$prevalence <- "custom"
+  options$prevalenceValue <- 0.1
+  results <- jaspTools::runAnalysis(analysisName, asahData(), options)
+  expect_identical(footnoteText(getTableElement(results, "cutoffTable")), "PPV and NPV use a prevalence of 0.1.")
+  expect_identical(footnoteText(getTableElement(results, "coordinatesTable")),
+                   paste(undefinedNote, "|", "PPV and NPV use a prevalence of 0.1."))
+})
+
+test_that("Comparison table: the left-out rows note appears only when rows are left out", {
+  options <- rocOptions(c("s100b", "ndka"))
+  options$cutoffTable <- FALSE
+  options$comparisonTable <- TRUE
+  results <- jaspTools::runAnalysis(analysisName, asahData(), options)
+  expect_identical(footnoteText(getTableElement(results, "comparisonTable")),
+                   "DeLong's test for two paired ROC curves. Difference = AUC of marker 1 - AUC of marker 2.")
+
+  df <- asahData()
+  df$ndka[1] <- NA
+  results <- jaspTools::runAnalysis(analysisName, df, options)
+  expect_match(footnoteText(getTableElement(results, "comparisonTable")),
+               "Only rows where the outcome and every marker are present are used: 1 row was left out.", fixed = TRUE)
 })
 
 test_that("AUC CI at level 0.90 matches pROC", {
@@ -396,8 +442,20 @@ test_that("Bootstrap CI with a seed equals pROC's stratified ci.auc on each run,
     expectCells(row, c(auc = 0.731368563685637, se = 0.0516592920700373, z = 4.47874050174668,
                        lower = expected[1], upper = expected[3]), tolerance = 1e-12, label = paste("run", run))
     expect_match(footnoteText(getTableElement(results, "aucTable")),
-                 "The confidence interval is a percentile interval from 200 stratified bootstrap samples.", fixed = TRUE)
+                 "Percentile bootstrap interval from 200 stratified bootstrap samples.", fixed = TRUE)
   }
+})
+
+test_that("The bootstrap footnote gives the number of samples with a thousands separator", {
+  options <- rocOptions("s100b")
+  options$cutoffTable <- FALSE
+  options$aucCiMethod <- "bootstrap"
+  options$bootstrapSamples <- 2000
+  options$setSeed <- TRUE
+  results <- jaspTools::runAnalysis(analysisName, asahData(), options)
+  expect_identical(footnoteText(getTableElement(results, "aucTable")),
+                   paste("Percentile bootstrap interval from 2,000 stratified bootstrap samples.", "|",
+                         "Positive level: Poor. Higher marker values indicate positive."))
 })
 
 # ---------------------------------------------------------------------------------------------- cross-checks
@@ -1461,38 +1519,33 @@ plotObject <- function(results, name) {
   results[["state"]][["figures"]][[el[["data"]]]][["obj"]]
 }
 
-test_that("Plots render and their notes say what the circles mark and which marker has no curve", {
+test_that("Plots render without captions, and a marker without a curve is left out", {
+  # JASP's own plots carry no text inside the image. A marker without a curve is left out of both plots; the
+  # AUC table names it in a footnote on its row.
   df <- asahData()
   df$beta <- ifelse(df$outcome == "Poor", NA, df$ndka)
   options <- rocOptions(c("s100b", "beta"))
   options$rocPlot <- TRUE
   options$thresholdPlot <- TRUE
-  results <- jaspTools::runAnalysis(analysisName, df, options)
-  expectNoError(results)
-  for (name in c("rocPlot", "thresholdPlot")) {
-    p <- plotObject(results, name)
-    expect_true(ggplot2::is_ggplot(p), label = paste(name, "is a ggplot"))
-    expect_silent(ggplot2::ggplotGrob(p))
-    expect_match(p$labels$caption, "No curve for beta", label = paste(name, "caption"))
+  for (criterion in c("youden", "threshold")) {
+    options$cutoffCriterion <- criterion
+    options$thresholdValue <- 0.2
+    results <- jaspTools::runAnalysis(analysisName, df, options)
+    expectNoError(results)
+    for (name in c("rocPlot", "thresholdPlot")) {
+      p <- plotObject(results, name)
+      expect_true(ggplot2::is_ggplot(p), label = paste(name, "is a ggplot"))
+      expect_silent(ggplot2::ggplotGrob(p))
+      expect_null(p$labels$caption, label = paste(name, criterion, "caption"))
+      expect_identical(levels(p$data$marker), "s100b", label = paste(name, "markers drawn"))
+    }
+    # Two markers were asked for, so the ROC plot keeps its legend: the remaining curve is named.
+    built <- ggplot2::ggplot_build(plotObject(results, "rocPlot"))
+    expect_identical(built$plot$theme$legend.position, "right")
+    expect_identical(unname(built$plot$scales$get_scales("colour")$get_labels()), "s100b")
+    expect_match(footnoteText(getTableElement(results, "aucTable")),
+                 "No ROC curve for beta: it needs at least one complete case in each class.", fixed = TRUE)
   }
-  expect_match(gsub("\\s+", " ", plotObject(results, "rocPlot")$labels$caption),
-               "Circles mark the cut-off chosen for each marker by the criterion in the cut-off table (Youden). Tied cut-offs each get a circle.",
-               fixed = TRUE)
-
-  options$cutoffCriterion <- "threshold"
-  options$thresholdValue <- 0.2
-  results <- jaspTools::runAnalysis(analysisName, df, options)
-  expect_match(gsub("\\s+", " ", plotObject(results, "rocPlot")$labels$caption), "threshold 0.2.", fixed = TRUE)
-  # The value as typed, not rounded to 6 digits (1234.57).
-  options$thresholdValue <- 1234.5678
-  results <- jaspTools::runAnalysis(analysisName, df, options)
-  expect_match(gsub("\\s+", " ", plotObject(results, "rocPlot")$labels$caption), "threshold 1234.5678.",
-               fixed = TRUE)
-
-  options$cutoffTable <- FALSE
-  options$tests <- "s100b"
-  results <- jaspTools::runAnalysis(analysisName, df, options)
-  expect_null(plotObject(results, "rocPlot")$labels$caption)
 })
 
 test_that("ROC plot: tied cut-offs each get a circle", {
@@ -1784,23 +1837,6 @@ test_that("Threshold plot: a tiny negative minimum still gives plain tick labels
   expect_silent(ggplot2::ggplotGrob(p))
 })
 
-test_that("ROC plot note mentions tied cut-offs only for the criteria that can tie", {
-  # Only the Youden index and closest to (0, 1) can give tied rows; the fixed criteria break ties, and a typed
-  # threshold is one value.
-  note <- function(criterion) {
-    jaspDiagnosticAccuracy:::.rocCutoffPointNote(list(cutoffCriterion = criterion, fixedSensitivityValue = 0.9,
-                                                      fixedSpecificityValue = 0.9, thresholdValue = 0.2))
-  }
-  tied <- "Tied cut-offs each get a circle."
-  expect_match(note("youden"), tied, fixed = TRUE)
-  expect_match(note("closestTopLeft"), tied, fixed = TRUE)
-  expect_identical(note("fixedSensitivity"),
-                   "Circles mark the cut-off chosen for each marker by the criterion in the cut-off table (Sensitivity ≥ 0.9).")
-  expect_identical(note("fixedSpecificity"),
-                   "Circles mark the cut-off chosen for each marker by the criterion in the cut-off table (Specificity ≥ 0.9).")
-  expect_false(grepl(tied, note("threshold"), fixed = TRUE))
-})
-
 test_that("The plots' .data pronoun comes from ggplot2, so the package has no undefined global", {
   ns <- asNamespace("jaspDiagnosticAccuracy")
   expect_true(".data" %in% ls(parent.env(ns), all.names = TRUE))
@@ -2024,7 +2060,7 @@ test_that("Encoded column names: every label, footnote, plot label and error sho
     labels <- c(levels(p$data$marker), unlist(p$labels))
     expect_false(any(grepl("jaspColumn", labels, fixed = TRUE)), label = paste(plot, "labels"))
     expect_true(any(grepl("my marker", labels, fixed = TRUE)), label = paste(plot, "names the marker"))
-    expect_true(any(grepl("k k", labels, fixed = TRUE)), label = paste(plot, "note names the marker with no curve"))
+    expect_false(any(grepl("k k", levels(p$data$marker), fixed = TRUE)), label = paste(plot, "leaves out the marker with no curve"))
   }
 
   # The outcome error names the decoded outcome.

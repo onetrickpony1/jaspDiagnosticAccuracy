@@ -27,11 +27,11 @@
     gettextf("Positive level: %s. Higher marker values indicate positive.", results$outcome$positive)
 }
 
-.rocRuleText <- function(options) {
-  if (options[["direction"]] == "lower")
-    gettext("A case is classed as positive when its marker value is at or below the threshold (value \u2264 threshold).")
-  else
-    gettext("A case is classed as positive when its marker value is at or above the threshold (value \u2265 threshold).")
+# The footnote for a prevalence you enter, or NULL for the sample prevalence (the default, explained in the help).
+.rocPrevalenceText <- function(prevalence) {
+  if (is.null(prevalence))
+    return(NULL)
+  gettextf("PPV and NPV use a prevalence of %s.", format(prevalence, digits = 6))
 }
 
 # p columns use type "pvalue", which jaspBase gives the format "dp:3;p:.001" (R/zzzWrappers.R, addColumnInfo,
@@ -130,9 +130,6 @@
           row$upper <- .rocEmpty(ci[3])
         }
       }
-      if (isTRUE(info$tiesBetweenClasses))
-        table$addFootnote(gettextf("%s has tied values between the classes. Each tie counts as one half in the AUC.",
-                                   decodeColNames(marker)), colNames = "auc", rowNames = marker)
     }
     if (isTRUE(info$nInfinite > 0))
       table$addFootnote(sprintf(ngettext(info$nInfinite,
@@ -156,12 +153,10 @@
   if (zeroSe)
     table$addFootnote(gettext("When the DeLong standard error is zero (the classes do not overlap), z and p are not defined."))
 
+  # The DeLong interval is the default and needs no note; the help explains it, and the Wald test of AUC = 0.5.
   if (bootstrap)
-    table$addFootnote(gettextf("The confidence interval is a percentile interval from %d stratified bootstrap samples.",
-                               as.integer(options[["bootstrapSamples"]])))
-  else
-    table$addFootnote(gettext("The confidence interval uses the DeLong standard error."))
-  table$addFootnote(gettext("z and p test AUC = 0.5: a two-sided Wald test with the DeLong standard error."))
+    table$addFootnote(gettextf("Percentile bootstrap interval from %s stratified bootstrap samples.",
+                               formatC(as.integer(options[["bootstrapSamples"]]), format = "d", big.mark = ",")))
   table$addFootnote(.rocDirectionText(results, options))
 }
 
@@ -254,12 +249,9 @@
   .rocAddMarkerFootnotes(table, results)
   if (undefined)
     table$addFootnote(gettext("Empty PPV, NPV or likelihood ratio cells are undefined (a division by zero)."))
-  table$addFootnote(.rocRuleText(options))
-  table$addFootnote(gettext("Sensitivity and specificity intervals are Clopper-Pearson intervals."))
-  if (is.null(prevalence))
-    table$addFootnote(gettext("PPV and NPV use the sample prevalence of each marker's complete cases."))
-  else
-    table$addFootnote(gettextf("PPV and NPV use a prevalence of %s.", format(prevalence, digits = 6)))
+  # The classification rule, the Clopper-Pearson intervals and the sample prevalence are explained in the help.
+  if (!is.null(prevalence))
+    table$addFootnote(.rocPrevalenceText(prevalence))
 }
 
 # Comparison table ----
@@ -355,10 +347,11 @@
   }
 
   table$addFootnote(gettext("DeLong's test for two paired ROC curves. Difference = AUC of marker 1 - AUC of marker 2."))
-  table$addFootnote(sprintf(ngettext(nRemoved,
-                                     "Only rows where the outcome and every marker are present are used: %d row was left out.",
-                                     "Only rows where the outcome and every marker are present are used: %d rows were left out."),
-                            nRemoved))
+  if (nRemoved > 0)
+    table$addFootnote(sprintf(ngettext(nRemoved,
+                                       "Only rows where the outcome and every marker are present are used: %d row was left out.",
+                                       "Only rows where the outcome and every marker are present are used: %d rows were left out."),
+                              nRemoved))
 }
 
 # A message when the rows used for the comparison (outcome and every marker present) hold fewer than two cases in
@@ -454,8 +447,9 @@
   .rocAddMarkerFootnotes(table, results)
   if (undefined)
     table$addFootnote(gettext("Empty PPV or NPV cells are undefined (a division by zero)."))
-  table$addFootnote(gettext("Thresholds are pROC's: the midpoints between neighbouring observed values, plus -\u221e and \u221e."))
-  table$addFootnote(.rocRuleText(options))
+  # pROC's thresholds and the classification rule are explained in the help.
+  if (!is.null(prevalence))
+    table$addFootnote(.rocPrevalenceText(prevalence))
 }
 
 # Sets the data of a table from a list of parts, each a list of columns plus rowNames. A column is a vector or a

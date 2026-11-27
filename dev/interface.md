@@ -68,3 +68,30 @@ Renamed options: version 0.1.1 renamed `bootstrapReplicates` to `bootstrapSample
 - Errors (whole analysis): outcome without exactly 2 levels after removing missing values (message names the levels found); `positiveLevel` not among the levels present; an option outside its range in the table above, checked only when the output uses it (`ciLevel` always; `bootstrapSamples` under the bootstrap; `fixedSensitivityValue`, `fixedSpecificityValue` and `thresholdValue` when `cutoffTable` is on with that criterion; `prevalenceValue` when `prevalence` is `"custom"` and `cutoffTable` or `coordinatesTable` is on). The message names the field as the form shows it.
 - Missing outcome: an empty cell (the empty string) counts as missing, as in JASP.
 - Per-marker problems (constant marker, no cases in one class): that marker's rows show empty cells with a footnote, the other markers still run.
+
+## Footnotes and plot text
+
+As in JASP's own modules, a table has few notes. A note that always applies is kept only where the table cannot be read without it. Everything else is explained on the help page (`inst/help/rocCurve.md`). The plots carry no text inside the image.
+
+Notes that are always shown:
+
+- `aucTable`: "Positive level: {level}. Higher marker values indicate positive." (or "Lower ...").
+- `comparisonTable`: "DeLong's test for two paired ROC curves. Difference = AUC of marker 1 - AUC of marker 2."
+
+Notes for a non-default choice:
+
+- `aucTable`, under the bootstrap: "Percentile bootstrap interval from {n} stratified bootstrap samples.", with a thousands separator (2,000). The DeLong interval has no note.
+- `cutoffTable` and `coordinatesTable`, with a custom prevalence: "PPV and NPV use a prevalence of {p}." The sample prevalence has no note.
+
+Notes that flag a problem, each shown only when it applies:
+
+- `aucTable`: a marker without a curve (on its row); the SE and interval need two cases per class, or could not be computed; the interval could not be computed; infinite values treated as missing; rows with a missing value left out; text labels used as the level order; a zero DeLong SE, so z and p are not defined; a p that is stored as 0.
+- `cutoffTable`: a marker without a curve (on its row); no threshold meets the criterion; equally good thresholds, one row each; thresholds rounded for display; empty PPV, NPV or likelihood ratio cells (a division by zero).
+- `comparisonTable`: rows left out (only when at least one row was); too few cases in a class among the rows used; a marker without a curve on the rows used; a zero SE of the difference, so z and p are not defined; the comparison could not be computed; a p that is stored as 0.
+- `coordinatesTable`: a marker without a curve (on its row); thresholds rounded for display; empty PPV or NPV cells. The second applies to almost every marker: at the threshold where every case is positive the NPV is 0 / 0, and where no case is positive the PPV is 0 / 0.
+
+Every note uses the decoded column names.
+
+Not in a note, but on the help page: the DeLong standard error and the two-sided Wald test of AUC = 0.5; ties between the classes count one half in the AUC; the classification rule (a value equal to the threshold counts as positive); the Clopper-Pearson intervals; PPV and NPV at the sample prevalence; pROC's thresholds (midpoints, plus -Inf and Inf); what the circles on the ROC plot mark.
+
+Plots: a marker without a curve is left out of the ROC plot and the threshold plot (the AUC table says why). When no marker has a curve, the plot shows the error "No marker has an ROC curve. See the footnotes of the AUC table." (`plot$setError`).

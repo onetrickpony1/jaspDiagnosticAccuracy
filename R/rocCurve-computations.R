@@ -65,7 +65,6 @@
     }
     out$seFailed <- is.na(out$se)
   }
-  out$tiesBetweenClasses <- any(cases %in% controls)
   return(out)
 }
 

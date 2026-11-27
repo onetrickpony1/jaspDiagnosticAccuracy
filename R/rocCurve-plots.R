@@ -33,6 +33,9 @@
   results <- .rocGetFits(jaspResults)
   curves  <- list()
   points  <- list()
+  # A marker without a curve is left out of the plot. The AUC table says why in a footnote on its row, so the
+  # plot carries no text of its own, as in JASP's own plots. Only when no marker has a curve does the plot show
+  # an error.
   for (marker in results$markers) {
     info <- results$fits[[marker]]
     if (!is.null(info$problem))
@@ -62,32 +65,31 @@
   labels <- unique(curveData$marker)
   curveData$marker <- factor(curveData$marker, levels = labels)
   breaks <- seq(0, 1, by = 0.2)
+  # The legend shows whenever more than one marker was asked for, so that a lone remaining curve is still named
+  # when the other markers have no curve.
+  showLegend <- length(results$markers) > 1
 
   # The chance line is a segment from (0, 0) to (1, 1), so it stays inside the axes.
   p <- ggplot2::ggplot(curveData, ggplot2::aes(x = .data[["x"]], y = .data[["y"]], colour = .data[["marker"]])) +
     ggplot2::annotate("segment", x = 0, y = 0, xend = 1, yend = 1, linetype = "dashed", colour = "grey60") +
     ggplot2::geom_path(linewidth = 1)
-  notes <- character(0)
+  # The circles mark the cut-offs of the cut-off table; the help says so.
   if (length(points) > 0) {
     pointData <- do.call(rbind, points)
     pointData$marker <- factor(pointData$marker, levels = labels)
     p <- p + ggplot2::geom_point(data = pointData, size = 3, shape = 21, fill = "white", stroke = 1.5)
-    notes <- .rocCutoffPointNote(options)
   }
-  notes <- c(notes, .rocNoCurveNote(results))
   p <- p +
     jaspGraphs::scale_JASPcolor_discrete(name = gettext("Marker")) +
     jaspGraphs::scale_x_continuous(name = gettext("1 - Specificity"), breaks = breaks, limits = c(0, 1)) +
     jaspGraphs::scale_y_continuous(name = gettext("Sensitivity"), breaks = breaks, limits = c(0, 1)) +
     jaspGraphs::geom_rangeframe() +
-    jaspGraphs::themeJaspRaw(legend.position = if (length(labels) > 1) "right" else "none")
-  if (length(labels) > 1) {
+    jaspGraphs::themeJaspRaw(legend.position = if (showLegend) "right" else "none")
+  if (showLegend) {
     room <- .rocLegendRoom(c(labels, gettext("Marker")))
     plot$width <- room$width
     p <- p + ggplot2::theme(plot.margin = ggplot2::margin(r = room$margin))
   }
-  if (length(notes) > 0)
-    p <- p + .rocPlotNote(notes)
 
   plot$plotObject <- p
 }
@@ -107,24 +109,6 @@
   margin    <- ceiling(0.15 * textWidth) + 6
   extra     <- ceiling(1.15 * (textWidth - 7 * charWidth))
   list(width = 520 + extra, margin = margin)
-}
-
-# A number as typed: up to 15 significant digits, without trailing zeros (1234.5678 stays 1234.5678).
-.rocTypedText <- function(x) {
-  sprintf("%.15g", x)
-}
-
-# What the circles on the ROC plot mark.
-.rocCutoffPointNote <- function(options) {
-  if (options[["cutoffCriterion"]] == "threshold")
-    return(gettextf("Circles mark each marker's point at the threshold %s.",
-                    .rocTypedText(options[["thresholdValue"]])))
-  # Only the Youden index and closest to (0, 1) can tie; the fixed criteria break ties (.rocSelectCutoff).
-  if (options[["cutoffCriterion"]] %in% c("youden", "closestTopLeft"))
-    return(gettextf("Circles mark the cut-off chosen for each marker by the criterion in the cut-off table (%s). Tied cut-offs each get a circle.",
-                    .rocCriterionLabel(options)))
-  gettextf("Circles mark the cut-off chosen for each marker by the criterion in the cut-off table (%s).",
-           .rocCriterionLabel(options))
 }
 
 # Step curves of sensitivity and specificity against the threshold, for one marker.
@@ -194,7 +178,7 @@
   list(offset = offset, breaks = breaks, limits = range(breaks, lim - offset))
 }
 
-# The axis title or panel note for an offset: "Threshold \u2212 1e+15" (\u2212 is a minus sign). format() picks
+# The axis title or panel title for an offset: "Threshold \u2212 1e+15" (\u2212 is a minus sign). format() picks
 # the shorter of the fixed and the scientific form, so 1.7e12 shows as 1.7e+12.
 .rocOffsetText <- function(offset) {
   if (offset > 0)
@@ -243,6 +227,7 @@
   results <- .rocGetFits(jaspResults)
   parts <- list()
   axes  <- list()
+  # A marker without a curve is left out, as in the ROC plot.
   for (marker in results$markers) {
     info <- results$fits[[marker]]
     if (!is.null(info$problem))
@@ -304,10 +289,6 @@
   else
     p <- p + ggplot2::ggtitle(levels(plotData$marker))
 
-  note <- .rocNoCurveNote(results)
-  if (length(note) > 0)
-    p <- p + .rocPlotNote(note)
-
   plot$plotObject <- p
 }
 
@@ -346,24 +327,4 @@
 .rocBreaksFor <- function(lim, breaksList) {
   distance <- vapply(breaksList, function(b) abs(b[1] - lim[1]) + abs(b[length(b)] - lim[2]), numeric(1))
   breaksList[[which.min(distance)]]
-}
-
-# One sentence naming the markers that have no ROC curve, or character(0).
-.rocNoCurveNote <- function(results) {
-  missing <- Filter(function(marker) !is.null(results$fits[[marker]]$problem), results$markers)
-  if (length(missing) == 0)
-    return(character(0))
-  labels <- paste(vapply(missing, decodeColNames, ""), collapse = ", ")
-  sprintf(ngettext(length(missing),
-                   "No curve for %s: see the AUC table.",
-                   "No curves for %s: see the AUC table."),
-          labels)
-}
-
-# A note under a plot, left-aligned, as a ggplot2 caption. A plot has no footnotes, so notes go in the caption,
-# as in the raincloud plots of jaspDescriptives (R/raincloudPlots.R, commit e3595b5).
-.rocPlotNote <- function(lines) {
-  text <- paste(vapply(lines, function(x) paste(strwrap(x, width = 60), collapse = "\n"), ""), collapse = "\n")
-  list(ggplot2::labs(caption = text),
-       ggplot2::theme(plot.caption = ggplot2::element_text(hjust = 0)))
 }
