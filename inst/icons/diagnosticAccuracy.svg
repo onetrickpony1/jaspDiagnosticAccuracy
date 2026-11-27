@@ -1,5 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <clipPath id="box">
+      <rect x="9.5" y="9.5" width="45" height="45"/>
+    </clipPath>
+  </defs>
+  <line x1="8" y1="56" x2="56" y2="8" stroke="#8c8c8c" stroke-width="2" stroke-dasharray="4 3" clip-path="url(#box)"/>
+  <path d="M8 56 C 10 30, 22 14, 56 8" fill="none" stroke="#14a1e3" stroke-width="4" clip-path="url(#box)"/>
   <rect x="8" y="8" width="48" height="48" fill="none" stroke="#14a1e3" stroke-width="3"/>
-  <line x1="8" y1="56" x2="56" y2="8" stroke="#8c8c8c" stroke-width="2" stroke-dasharray="4 3"/>
-  <path d="M8 56 C 10 30, 22 14, 56 8" fill="none" stroke="#14a1e3" stroke-width="4" stroke-linecap="round"/>
 </svg>

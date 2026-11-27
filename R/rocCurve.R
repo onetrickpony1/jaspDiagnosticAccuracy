@@ -67,7 +67,7 @@ rocCurve <- function(jaspResults, dataset, options) {
 
 .rocCheckOptions <- function(options) {
   if (!.rocInOpenUnit(options[["ciLevel"]]))
-    .quitAnalysis(gettext("The confidence level must lie between 0% and 100%, not at either end."))
+    .quitAnalysis(gettextf("The confidence level must lie between 0%% and 100%%, not at either end."))
 
   if (options[["aucCiMethod"]] == "bootstrap") {
     reps <- options[["bootstrapSamples"]]

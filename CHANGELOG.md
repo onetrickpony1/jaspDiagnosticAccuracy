@@ -17,6 +17,7 @@
 - The field for the number of bootstrap samples is labelled "Samples" instead of "Replicates".
 - The bootstrap interval is now computed for large data sets. In 0.1.0 it was empty, with an R error message, once the number of cases times the number of controls passed 2,147,483,647 (for example 46,341 of each).
 - When the DeLong standard error cannot be computed for a marker that has two or more cases in each class, the AUC table gives a footnote that says so.
+- The curve in the module icon stays inside its box.
 
 ## 0.1.0 - 2026-11-26
 
