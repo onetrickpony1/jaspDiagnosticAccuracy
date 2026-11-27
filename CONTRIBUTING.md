@@ -38,7 +38,8 @@ An agent can do careful, repetitive checking that takes a person hours. The modu
 
 **Rules for agent work**
 
-- Open an issue with your findings first. Open a pull request only for a change you have checked: the tests pass (AGENTS.md says how), and the pull request says how the result was verified.
+- If you do not want to write the fix, or do not feel sure enough to, open an issue with your findings.
+- Otherwise, open a pull request with the fix. Describe the problem in it as you would in an issue, and say how you checked the fix: the tests pass (AGENTS.md says how) and the result was verified against a named source.
 - Every number needs a source you name: another program, a paper, or a calculation written out independently of the module. A value taken from the module's own output is not a check.
 - Keep each issue or pull request to one topic.
 - You are responsible for everything you post, whoever or whatever wrote it. Read it first, make sure it is right, and remove anything private (names, local paths, your own data). Once posted, it is your work: the credit and the blame are yours.
