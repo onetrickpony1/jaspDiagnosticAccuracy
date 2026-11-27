@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+## 0.1.1 - 2026-11-27
+
+- Installable module files (`.JASPModule`) for Linux (Flatpak), Windows and macOS (Apple silicon), on the releases page. The README describes how to install them.
 - Clear error messages when an option is outside its range (confidence level, number of bootstrap samples, fixed sensitivity or specificity, threshold, custom prevalence), instead of a crash or a missing row.
 - Empty outcome cells count as missing, as elsewhere in JASP.
 - Footnotes use the module's own messages when pROC cannot compute a curve, interval or comparison.

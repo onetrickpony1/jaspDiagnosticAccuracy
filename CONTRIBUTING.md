@@ -15,7 +15,7 @@ For a wrong number, say which value you expected and where it comes from, for ex
 ## Suggesting a change
 
 1. Fork the repository and create a branch for your change.
-2. Set up the module as described in the README ("Installation").
+2. Set up the module as described in the README ("Installation", "As a development module").
 3. Make the change. Follow the rules in [AGENTS.md](AGENTS.md): option and output names follow `dev/interface.md`, the default output stays the AUC table only, and tests compare against independently computed values.
 4. Run the tests, as described in [AGENTS.md](AGENTS.md) ("Running the tests and the validation"). If you change a statistic, also run the validation script.
 5. Add a line to `CHANGELOG.md` under "## Unreleased" for any change users will notice.

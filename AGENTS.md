@@ -14,7 +14,7 @@ A community JASP module for ROC curves and diagnostic accuracy. It has one analy
 
 ## Running the tests and the validation
 
-Install the packages and the module as described in the README ("Installation"). jaspTools and testthat are not in `renv.lock`, so install them as well. Then, in R from the repository root:
+Install the packages and the module as described in the README ("Installation", "As a development module"). jaspTools and testthat are not in `renv.lock`, so install them as well. Then, in R from the repository root:
 
 ```r
 library(jaspTools)

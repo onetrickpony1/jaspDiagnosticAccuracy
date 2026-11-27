@@ -63,9 +63,17 @@ The bootstrap interval, the choice of cut-off and the statistics at a cut-off ar
 
 ## Installation
 
-The module is not in JASP's Module Library. You can load it as a development module from its source, as described in the JASP module development guide ("Configure JASP for development"). The steps below were tested with JASP 0.99.0 on Linux. Windows was not tested end to end; the Windows notes below come from an early trial. macOS was not tested.
+The module is not in JASP's Module Library. There are two ways to install it.
 
-### Step 1: install the packages in R
+### From a release file
+
+The [releases page](https://github.com/onetrickpony1/jaspDiagnosticAccuracy/releases) has a `.JASPModule` file for Linux (Flatpak, x86-64), Windows (x86-64) and macOS (Apple silicon). Download the file for your system. In JASP, click the **+** icon (top right), choose **Install Local Module** and pick the file. A **Diagnostic Accuracy** button appears in the ribbon. The Linux file was tested in the JASP 0.99.0 Flatpak; the Windows and macOS files have not been tested in JASP.
+
+### As a development module
+
+You can also load the module from its source, as described in the JASP module development guide ("Configure JASP for development"). The steps below were tested with JASP 0.99.0 on Linux. Windows was not tested end to end; the Windows notes below come from an early trial. macOS was not tested.
+
+#### Step 1: install the packages in R
 
 Use the same R version as JASP:
 
@@ -86,7 +94,7 @@ The last line prints the library path. Copy the path between the quotes. The lib
 
 jaspBase and jaspGraphs come from GitHub. The tests did not need a GitHub token. renv may print "GitHub authentication credentials are not available" and "failed to resolve remote 'jasp-stats/jaspGraphs'; skipping". In the tests both were harmless. If renv reports "error code 22" or a rate limit, set a token (GITHUB_PAT) as the guide describes.
 
-### Step 2: load the module in JASP
+#### Step 2: load the module in JASP
 
 1. Open Menu (☰), Preferences, Advanced. Under "Modules options", tick **Developer mode**.
 2. In the **Development module** section that appears, leave **Enable renv mode** ticked. Paste the path from step 1 into the field next to **Project library:** and enter `jaspDiagnosticAccuracy` as **Module name:**.
