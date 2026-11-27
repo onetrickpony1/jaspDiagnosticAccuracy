@@ -8,9 +8,9 @@
 
 ## Overview
 
-<img src='inst/icons/diagnosticAccuracy.svg' width='149' height='149' align='right'/>
+<img src='inst/icons/diagnosticAccuracy.svg' width='148' height='112' align='right'/>
 
-**JASP Diagnostic Accuracy module** is a community add-on module for JASP. It has one analysis, **ROC Curve**.
+**JASP Diagnostic Accuracy module** is a community add-on module for JASP. It has one analysis, **ROC Curve**. It is not made or endorsed by the JASP team.
 
 **Work in progress** (version 0.1.1): options and output may still change.
 

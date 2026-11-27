@@ -1,0 +1,54 @@
+# Builds installable module bundles (.JASPModule) for Windows and macOS (Apple silicon).
+# Runs only when started by hand (Actions > build-bundles > Run workflow). The bundles are
+# kept as artifacts of the run; nothing is published or posted anywhere.
+name: build-bundles
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-14]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: '4.5.2'
+
+      - name: Install system dependencies on macOS
+        if: runner.os == 'macOS'
+        uses: r-hub/actions/setup-r-sysreqs@v1
+        with:
+          type: full
+
+      - name: Install the build tools
+        env:
+          GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          install.packages("remotes", repos = "https://cloud.r-project.org")
+          remotes::install_version("renv", version = "1.1.8", repos = "https://cloud.r-project.org")
+          remotes::install_github("jasp-stats/jaspModuleTools@41a8b8b09fa90efbae2de5aee214afd7739707f3", upgrade = "never")
+        shell: Rscript {0}
+
+      - name: Build the bundle
+        env:
+          GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          jaspModuleTools::compile("./", workdir = "./workdir", resultdir = "./bundles_build",
+                                   bundleAll = TRUE, buildforJaspVersion = "0.96.0",
+                                   includeInManifest = list(version = read.dcf("DESCRIPTION")[1, "Version"]))
+        shell: Rscript {0}
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: jaspDiagnosticAccuracy-bundle-${{ matrix.os }}
+          path: ./bundles_build/**/*.JASPModule
+          if-no-files-found: error
